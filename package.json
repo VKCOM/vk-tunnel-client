@@ -1,0 +1,29 @@
+{
+  "name": "@vkontakte/vk-tunnel",
+  "license": "MIT",
+  "version": "0.0.14",
+  "bin": {
+    "vk-tunnel": "./bin/vk-tunnel"
+  },
+  "scripts": {
+    "tunnel": "node bin/vk-tunnel"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vkcom/vk-tunnel-client.git"
+  },
+  "dependencies": {
+    "axios": "^0.19.2",
+    "chalk": "^3.0.0",
+    "configstore": "^5.0.1",
+    "http-string-parser": "0.0.6",
+    "node-fetch": "^2.6.0",
+    "parse-raw-http": "0.0.1",
+    "pino": "^5.17.0",
+    "pino-pretty": "^3.6.1",
+    "prompts": "^2.3.2",
+    "require-module": "^0.1.0",
+    "websocket": "^1.0.31",
+    "ws": "^7.2.3"
+  }
+}
