@@ -4,7 +4,6 @@ const packageJson = require('../package.json');
 const WebSocketClient = require('websocket').client;
 const WebSocket = require('ws');
 const pino = require('pino');
-const fetch = require('node-fetch');
 const prompt = require('prompts');
 const chalk = require('chalk');
 const Configstore = require('configstore');
@@ -12,13 +11,17 @@ const vault = new Configstore(packageJson.name, {});
 const httpParser = require('http-string-parser');
 const fs = require('fs');
 const querystring = require('querystring');
-const axios = require('axios');
+const request = require('./request');
 
 const logger = pino({
   prettyPrint: { colorize: true },
   level: process.env.LOGLEVEL || 'info',
   base: {},
-  timestamp: pino.stdTimeFunctions.isoTime
+  timestamp: () => {
+    const date = new Date();
+    // Такой странный вариант возвращают все внутренние функции pino
+    return `,"time":"${date.toLocaleDateString()} ${date.toLocaleTimeString()}"`;
+  }
 });
 
 let configJSON = {};
@@ -28,7 +31,6 @@ if (fs.existsSync('./vk-tunnel-config.json')) {
 const cfg = configJSON || {};
 
 const TUNNEL_APP_ID = 7357112;
-const CODE_SUCCESS = 200;
 const CLIENT_VERSION = 1;
 
 const API_HOST = cfg.api_host || 'https://api.vk.com/method/';
@@ -49,76 +51,70 @@ const DISABLE_COMPRESS = 'gzip;q=0,deflate;q=0';
 const OAUTH_USER_REVOKE_TOKEN_ERROR = 5;
 
 async function api(method, params) {
-  params['v'] = API_VERSION;
-  params['access_token'] = cfg.access_token;
+  params.v = API_VERSION;
+  params.access_token = cfg.access_token;
 
-  if (!cfg.access_token) {
-    logger.error('access_token is missing');
-    return false;
+  const { data } = await request(`${API_HOST}${method}?${querystring.stringify(params)}`, {
+    validateStatus: (status) => status >= 200 && status < 500
+  });
+
+  if (data.error) {
+    logger.error(chalk.red(`${data.error.error_code}: ${data.error.error_msg}`));
+
+    if (data.error.error_code === OAUTH_USER_REVOKE_TOKEN_ERROR) {
+      vault.delete('access_token');
+      vault.delete('user_id');
+
+      logger.warn(chalk.yellow('Previous settings has been removed'));
+    }
   }
 
-  const queryParams = querystring.stringify(params);
-  try {
-    const query = await fetch(API_HOST + method + '?' + queryParams);
-    const res = await query.json();
-    if (res.error !== void 0) {
-      if (res.error.error_code === OAUTH_USER_REVOKE_TOKEN_ERROR) {
-        vault.delete('access_token');
-        vault.delete('user_id');
-      }
-      logger.error(chalk.red(res.error.error_code + ': ' + res.error.error_msg));
-      logger.warn(chalk.yellow('Previous settings has been removed.'));
-      return false;
-    }
+  return data.response;
+}
 
-    if (res.response !== void 0) {
-      return res.response;
-    }
-  } catch (e) {
-    logger.error(e);
-  }
+async function oauth(name, params) {
+  const { data } = await request(`${OAUTH_HOST}${name}?${querystring.stringify(params)}`, {
+    validateStatus: (status) => status >= 200 && status < 500
+  });
+
+  return data;
 }
 
 async function auth() {
-  const getAuthCode = await fetch(OAUTH_HOST + 'get_auth_code?scope=offline&client_id=' + TUNNEL_APP_ID);
-  const getAuthCodeResult = await getAuthCode.json();
+  const { error, auth_code, device_id } = await oauth('get_auth_code', {
+    scope: 'offline',
+    client_id: TUNNEL_APP_ID
+  });
 
-  if (getAuthCodeResult.error) {
-    return Promise.reject('Failed auth code ' + JSON.stringify(getAuthCodeResult.error));
+  if (error) {
+    return Promise.reject('Failed auth code ' + JSON.stringify(error));
   }
 
-  if (getAuthCodeResult.auth_code) {
-    const { auth_code, device_id } = getAuthCodeResult;
+  while (true) {
+    const promptQuestion = await prompt({
+      type: 'confirm',
+      name: 'result',
+      initial: true,
+      message: chalk.yellow(
+        'Please open and approve authentication ',
+        `${OAUTH_HOST}code_auth?stage=check&code=${auth_code}`
+      )
+    });
 
-    const url = OAUTH_HOST + 'code_auth?stage=check&code=' + auth_code;
+    if (!promptQuestion.result) {
+      process.exit(0);
+    }
 
-    let handled = false;
-    do {
-      const promptQuestion = await prompt({
-        type: 'confirm',
-        name: 'result',
-        initial: true,
-        message: chalk.yellow('Please open and approve authentication ', url)
-      });
+    const codeAuthTokenResult = await oauth('code_auth_token', {
+      device_id,
+      client_id: TUNNEL_APP_ID
+    });
 
-      if (!promptQuestion.result) {
-        return Promise.reject('Empty auth response ' + promptQuestion.result);
-      }
+    if (codeAuthTokenResult.access_token) {
+      return codeAuthTokenResult;
+    }
 
-      const codeAuthToken = await fetch(OAUTH_HOST + 'code_auth_token?device_id=' + device_id + '&client_id=' + TUNNEL_APP_ID);
-      const codeAuthTokenResult = await codeAuthToken.json();
-
-      if (codeAuthToken.status !== CODE_SUCCESS) {
-        logger.error('code_auth_token.status: ', codeAuthToken.status, codeAuthTokenResult);
-        continue;
-      }
-
-      if (codeAuthTokenResult.access_token || codeAuthTokenResult.user_id) {
-        handled = true;
-      }
-
-      return Promise.resolve(codeAuthTokenResult);
-    } while (handled === false);
+    logger.info('Auth failed, retrying...');
   }
 }
 
@@ -130,24 +126,27 @@ async function getTunnelToken() {
 
   if (!cfg.access_token) {
     logger.info('Try to retrieve access token...');
+
     const { access_token, user_id } = await auth();
+
     cfg.access_token = access_token;
     cfg.user_id = user_id;
+
     vault.set('access_token', access_token);
     vault.set('user_id', user_id);
   }
 
-  const response = await api('apps.getTunnelToken', {
+  const data = await api('apps.getTunnelToken', {
     version: CLIENT_VERSION
   });
 
-  if (response.token) {
-    cfg.tunnelToken = response.token;
-    cfg.hostSuffix = response.suffix;
-    cfg.wsAddr = response.host;
-    cfg.wsURL = response.url;
+  if (data.token) {
+    cfg.tunnelToken = data.token;
+    cfg.hostSuffix = data.suffix;
+    cfg.wsAddr = data.host;
+    cfg.wsURL = data.url;
 
-    logger.debug('tunnel token', cfg.tunnelToken);
+    logger.debug('tunnel token:', cfg.tunnelToken);
 
     return cfg.tunnelToken;
   }
@@ -199,6 +198,9 @@ function parseOptions() {
       case '--insecure':
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = value === '1' ? '0' : '1';
         break;
+      default:
+        logger.info('Skip unknown option', option);
+        break;
     }
   }
 }
@@ -213,13 +215,11 @@ async function run() {
   const PROXY_WS_PROTO = process.env.PROXY_WS_PROTO || 'ws';
   const PROXY_PORT = process.env.PROXY_PORT || '10888';
 
-  const url = cfg.wsAddr + '/' + cfg.wsURL;
-
   const TYPE_HTTP = '\0';
   const TYPE_WEBSOCKET = '\1';
-  const TYPE_CLOSE = "\b";
+  const TYPE_CLOSE = '\b';
 
-  const map = {};
+  const url = cfg.wsAddr + '/' + cfg.wsURL;
   const connections = {};
 
   logger.debug('initialize', url);
@@ -232,7 +232,7 @@ async function run() {
   });
 
   client.on('connectFailed', (error) => {
-    logger.error('Connect Error:', error.toString());
+    logger.error('Connect error:', error.toString());
   });
 
   client.on('connect', (connection) => {
@@ -247,10 +247,10 @@ async function run() {
         '\n')
     );
 
-    console.log('open: ' + 'https://user' + cfg.user_id + '-' + cfg.hostSuffix + '.wormhole.vk-apps.com/');
+    console.log(`open: https://user${cfg.user_id}-${cfg.hostSuffix}.wormhole.vk-apps.com/`);
 
     connection.on('close', (code) => {
-      logger.info('disconnected, code:', code);
+      logger.info('Disconnected, code:', code);
     });
 
     connection.on('error', (error) => {
@@ -260,7 +260,6 @@ async function run() {
     connection.on('message', async (data) => {
       const rawWsRequest = data.binaryData.toString();
       const seq = rawWsRequest.slice(SEQ_BEGIN, SEQ_END);
-      logger.debug('ws from seq: ', seq);
       const msgType = rawWsRequest.slice(MSG_TYPE_BEGIN, MSG_TYPE_END);
       const payload = rawWsRequest.slice(PAYLOAD_BEGIN);
       const endpoint = payload.split(' ')[1];
@@ -279,12 +278,12 @@ async function run() {
         }
 
         connections[seq].send(filteredPayload, {}, () => {
-          logger.debug('WS REQUEST', 'seq: ' + seq, msgType, endpoint, filteredPayload);
+          logger.debug('ws request seq:', seq, msgType, endpoint, filteredPayload);
         });
       }
 
       if (typeof data !== 'object') {
-        connection.sendBytes('', () => {
+        return connection.sendBytes('', () => {
           logger.debug('pong');
         });
       }
@@ -293,52 +292,57 @@ async function run() {
         return;
       }
 
-      payload.split('\r');
       if (connections[seq]) {
-        logger.info(new Date().toString(), 'connection already exists', seq, data.toString());
+        logger.info('connection already exists', seq);
       }
 
-      let rawResponse = '';
-      let parsedRequest = httpParser.parseRequest(payload.toString());
-      parsedRequest.headers['Host'] = PROXY_HOST;
+      const parsedRequest = httpParser.parseRequest(payload.toString());
+
+      parsedRequest.headers.Host = PROXY_HOST;
       parsedRequest.headers[ACCEPT_ENCODING] = DISABLE_COMPRESS;
 
-      const upgradeHeader = parsedRequest.headers['Upgrade'] || '';
+      const upgradeHeader = parsedRequest.headers.Upgrade || '';
       const isWebsocketUpgrade = upgradeHeader.toLowerCase() === 'websocket';
+
       if (isWebsocketUpgrade) {
-        logger.debug('upgrade to websocket ', endpoint);
+        logger.debug('upgrade to websocket', endpoint);
 
         const tunnelUrl = `${PROXY_WS_PROTO}://${PROXY_HOST}:${PROXY_PORT}${endpoint}`;
+
         if (connections[seq]) {
-          map[seq] = endpoint;
           logger.debug('upgrade request', seq.toString(), msgType.charCodeAt(0), endpoint);
         }
-        logger.debug('create connection ', seq);
+
+        logger.debug('create connection', seq);
 
         connections[seq] = new WebSocket(tunnelUrl, [], {});
-        map[seq] = tunnelUrl;
+
         connections[seq].on('error', (msg) => {
-          logger.error('Connection error for ' + seq, msg);
+          logger.error('Connection error for', seq, msg);
         });
 
         connections[seq].on('upgrade', (msg) => {
-          let response = ['HTTP/1.1 101 Switching Protocols'];
-          let keys = Object.keys(msg.headers);
-          for (let i = 0; i < keys.length; i++) {
-            response.push(`${keys[i]}:${msg.headers[keys[i]]}`);
+          const response = ['HTTP/1.1 101 Switching Protocols'];
+
+          for (const key in msg.headers) {
+            response.push(`${key}: ${msg.headers[key]}`);
           }
+
           response.push('\n');
+
           connection.sendUTF(seq + TYPE_HTTP + response.join('\n'), () => {
-            logger.debug('send reply upgrade', seq, response.toString());
+            logger.debug('send reply upgrade', seq);
           });
         });
 
         logger.debug('ws connect', tunnelUrl);
+
         connections[seq].on('open', () => {
           connections[seq].on('message', (data) => {
-            logger.debug('incoming ws message from service', seq, data);
+            logger.debug('incoming ws message from service', seq);
+
             connection.sendUTF(seq + TYPE_WEBSOCKET + data, () => {
-              logger.debug('send reply', seq, data);
+              logger.debug('send reply', seq);
             });
           });
         });
@@ -346,45 +350,43 @@ async function run() {
         return;
       }
 
-      let error;
-      let response = await axios({
+      const response = await request({
         url: `${PROXY_HTTP_PROTO}://${PROXY_HOST}:${PROXY_PORT}${parsedRequest.uri}`,
         data: parsedRequest.body,
         headers: parsedRequest.headers,
         method: parsedRequest.method,
         responseType: 'arraybuffer',
         timeout: 5000,
-        validateStatus: function(status) {
-          return status >= 200 && status < 500;
-        },
-      }).catch(function(e) {
-        logger.error('502, Error:', e.message);
-        error = {
+        validateStatus: (status) => status >= 200 && status < 500
+      }).catch((err) => {
+        logger.error('502 Error:', err.message);
+
+        // await Promise.reject().catch(() => 10) вернет 10
+        return {
           status: 502,
           statusText: 'Bad gateway',
           headers: {
-            'content-type': 'text/html',
+            'content-type': 'text/html'
           },
           data: Buffer.from('Bad gateway', 'utf8')
         };
       });
 
-      if(!response) {
-        response = error;
-      }
-      rawResponse = `HTTP/1.1 ${response.status}  ${response.statusText}\r\n`;
-      let keys = Object.keys(response.headers);
-      for (let i = 0; i < keys.length; i++) {
-        if (keys[i] === 'transfer-encoding') {
+      let rawResponse = `HTTP/1.1 ${response.status}  ${response.statusText}\r\n`;
+
+      for (const key in response.headers) {
+        if (key === 'transfer-encoding') {
           continue;
         }
 
-        if (keys[i] === 'content-length' && response.headers.hasOwnProperty('transfer-encoding')) {
+        if (key === 'content-length' && ('transfer-encoding' in response.headers)) {
           rawResponse += `content-length: ${response.data.length}\r\n`;
           continue;
         }
-        rawResponse += `${keys[i]}:${response.headers[keys[i]]}\r\n`;
+
+        rawResponse += `${key}: ${response.headers[key]}\r\n`;
       }
+
       rawResponse += '\r\n';
 
       const buffer = Buffer.concat([
@@ -395,15 +397,21 @@ async function run() {
       ]);
 
       connection.sendBytes(buffer, () => {
-        logger.debug('REQUEST', 'seq:' + seq, 'type:' + msgType.charCodeAt(0), 'endpoint:' + endpoint, data.toString());
-        const realIp = parsedRequest['headers']['X-Real-Ip'] || '-';
+        const normalMsgType = ({
+          [TYPE_HTTP]: 'HTTP',
+          [TYPE_WEBSOCKET]: 'WebSocket',
+          [TYPE_CLOSE]: 'Close'
+        })[msgType] || msgType;
+
+        const realIp = parsedRequest.headers['X-Real-Ip'] || '-';
         const statusCode = response.status || '-';
-        const host = parsedRequest['headers']['Host'] || '-';
-        const method = parsedRequest['method'] || '-';
-        const uri = parsedRequest['uri'] || '-';
-        const ua = parsedRequest['headers']['User-Agent'] || '-';
+        const host = parsedRequest.headers.Host || '-';
+        const method = parsedRequest.method || '-';
+        const uri = parsedRequest.uri || '-';
         const length = response.data.length;
-        logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua} ${length}`);
+
+        logger.debug(`seq: ${seq}, message type: ${normalMsgType}`);
+        logger.info(`ip: ${realIp}, code: ${statusCode}, host: ${host}, method: ${method}, path: ${uri}, len: ${length}`);
       });
     });
   });
