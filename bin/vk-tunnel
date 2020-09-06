@@ -15,12 +15,11 @@ const querystring = require('querystring');
 const axios = require('axios');
 
 const logger = pino({
-  prettyPrint: {colorize: true},
+  prettyPrint: { colorize: true },
   level: process.env.LOGLEVEL || 'info',
   base: {},
   timestamp: pino.stdTimeFunctions.isoTime
 });
-
 
 let configJSON = {};
 if (fs.existsSync('./vk-tunnel-config.json')) {
@@ -48,55 +47,6 @@ const ACCEPT_ENCODING = 'Accept-Encoding';
 const DISABLE_COMPRESS = 'gzip;q=0,deflate;q=0';
 
 const OAUTH_USER_REVOKE_TOKEN_ERROR = 5;
-
-async function auth() {
-  const getAuthCode = await fetch(OAUTH_HOST + 'get_auth_code?scope=offline&client_id=' + TUNNEL_APP_ID);
-  const getAuthCodeResult = await getAuthCode.json();
-
-  if (getAuthCodeResult.error !== void 0) {
-    return Promise.reject("Failed auth code " + JSON.stringify(getAuthCodeResult.error));
-  }
-
-  if (getAuthCodeResult.response !== void 0) {
-    logger.error('fail, get_auth_code response ', getAuthCodeResult);
-    return Promise.reject("Empty auth response " + getAuthCodeResult.response);
-  }
-
-  if (getAuthCodeResult.auth_code) {
-    const {auth_code, device_id} = getAuthCodeResult;
-
-    const url = OAUTH_HOST + 'code_auth?stage=check&code=' + auth_code;
-
-    let handled = false;
-    do {
-      const promptQuestion = await prompt({
-        type: 'confirm',
-        name: 'result',
-        initial: true,
-        message: chalk.yellow('Please open and approve authentication ', url)
-      });
-
-      if (!promptQuestion.result) {
-        return Promise.reject("Empty auth response " + promptQuestion.result);
-      }
-
-      const codeAuthToken = await fetch(OAUTH_HOST + 'code_auth_token?device_id=' + device_id + '&client_id=' + TUNNEL_APP_ID);
-      const codeAuthTokenResult = await codeAuthToken.json();
-
-      if (codeAuthToken.status !== CODE_SUCCESS) {
-        logger.error('code_auth_token.status: ', codeAuthToken.status, codeAuthTokenResult);
-        continue;
-      }
-
-      if (codeAuthTokenResult.access_token || codeAuthTokenResult.user_id) {
-        handled = true;
-      }
-
-      return Promise.resolve(codeAuthTokenResult);
-
-    } while (handled === false);
-  }
-}
 
 async function api(method, params) {
   params['v'] = API_VERSION;
@@ -129,6 +79,49 @@ async function api(method, params) {
   }
 }
 
+async function auth() {
+  const getAuthCode = await fetch(OAUTH_HOST + 'get_auth_code?scope=offline&client_id=' + TUNNEL_APP_ID);
+  const getAuthCodeResult = await getAuthCode.json();
+
+  if (getAuthCodeResult.error) {
+    return Promise.reject('Failed auth code ' + JSON.stringify(getAuthCodeResult.error));
+  }
+
+  if (getAuthCodeResult.auth_code) {
+    const { auth_code, device_id } = getAuthCodeResult;
+
+    const url = OAUTH_HOST + 'code_auth?stage=check&code=' + auth_code;
+
+    let handled = false;
+    do {
+      const promptQuestion = await prompt({
+        type: 'confirm',
+        name: 'result',
+        initial: true,
+        message: chalk.yellow('Please open and approve authentication ', url)
+      });
+
+      if (!promptQuestion.result) {
+        return Promise.reject('Empty auth response ' + promptQuestion.result);
+      }
+
+      const codeAuthToken = await fetch(OAUTH_HOST + 'code_auth_token?device_id=' + device_id + '&client_id=' + TUNNEL_APP_ID);
+      const codeAuthTokenResult = await codeAuthToken.json();
+
+      if (codeAuthToken.status !== CODE_SUCCESS) {
+        logger.error('code_auth_token.status: ', codeAuthToken.status, codeAuthTokenResult);
+        continue;
+      }
+
+      if (codeAuthTokenResult.access_token || codeAuthTokenResult.user_id) {
+        handled = true;
+      }
+
+      return Promise.resolve(codeAuthTokenResult);
+    } while (handled === false);
+  }
+}
+
 async function getTunnelToken() {
   if (!cfg.access_token && vault.get('access_token')) {
     cfg.access_token = vault.get('access_token');
@@ -137,34 +130,37 @@ async function getTunnelToken() {
 
   if (!cfg.access_token) {
     logger.info('Try to retrieve access token...');
-    const {access_token, user_id} = await auth();
+    const { access_token, user_id } = await auth();
     cfg.access_token = access_token;
     cfg.user_id = user_id;
     vault.set('access_token', access_token);
     vault.set('user_id', user_id);
   }
 
-  const response = await api('apps.getTunnelToken', {version: CLIENT_VERSION});
+  const response = await api('apps.getTunnelToken', {
+    version: CLIENT_VERSION
+  });
+
   if (response.token) {
     cfg.tunnelToken = response.token;
     cfg.hostSuffix = response.suffix;
     cfg.wsAddr = response.host;
     cfg.wsURL = response.url;
-    logger.debug('tunnel token', cfg.tunnelToken);
-    return cfg.tunnelToken;
-  } else {
-    logger.error('Can\'t retrieve tunnel token');
-    process.exit(1);
-  }
-}
 
+    logger.debug('tunnel token', cfg.tunnelToken);
+
+    return cfg.tunnelToken;
+  }
+
+  logger.error('Can\'t retrieve tunnel token');
+  process.exit(1);
+}
 
 function filterHeaders(payload, proxyHost) {
   return payload
     .replace(/Accept-Encoding:.*/, ACCEPT_ENCODING + ': ' + DISABLE_COMPRESS)
-    .replace(/Host: .*/, 'Host: ' + proxyHost)
+    .replace(/Host: .*/, 'Host: ' + proxyHost);
 }
-
 
 function getHelpMessage() {
   return '\n' +
@@ -181,6 +177,7 @@ function getHelpMessage() {
 function parseOptions() {
   for (let i = 2; i < process.argv.length; i++) {
     const [option, value] = process.argv[i].split('=');
+
     if (option === '-h') {
       console.log(getHelpMessage());
       process.exit(0);
@@ -211,15 +208,12 @@ async function run() {
 
   const tunnelToken = await getTunnelToken();
 
-  const WS_URL = cfg.wsURL;
-  const WS_ADDRESS = cfg.wsAddr;
   const PROXY_HOST = process.env.PROXY_HOST || 'localhost';
   const PROXY_HTTP_PROTO = process.env.PROXY_HTTP_PROTO || 'http';
   const PROXY_WS_PROTO = process.env.PROXY_WS_PROTO || 'ws';
   const PROXY_PORT = process.env.PROXY_PORT || '10888';
 
-  const url = WS_ADDRESS + '/' + WS_URL;
-  logger.debug('initialize', url);
+  const url = cfg.wsAddr + '/' + cfg.wsURL;
 
   const TYPE_HTTP = '\0';
   const TYPE_WEBSOCKET = '\1';
@@ -228,18 +222,20 @@ async function run() {
   const map = {};
   const connections = {};
 
-  const client = new WebSocketClient();
-  client.connect(url, null, null, {
-    "UserID": cfg.user_id,
-    "Token": tunnelToken
-  });
-  client.on('connectFailed', function(error) {
-    logger.error('Connect Error: ' + error.toString());
-  });
-  let mainSocket = null;
+  logger.debug('initialize', url);
 
-  client.on('connect', function(connection) {
-    mainSocket = connection.socket;
+  const client = new WebSocketClient();
+
+  client.connect(url, null, null, {
+    UserID: cfg.user_id,
+    Token: tunnelToken
+  });
+
+  client.on('connectFailed', (error) => {
+    logger.error('Connect Error:', error.toString());
+  });
+
+  client.on('connect', (connection) => {
     logger.debug('connected to', url);
 
     console.log('\n' +
@@ -256,22 +252,25 @@ async function run() {
     connection.on('close', (code) => {
       logger.info('disconnected, code:', code);
     });
+
     connection.on('error', (error) => {
       logger.error('wsMain error', error);
     });
+
     connection.on('message', async (data) => {
-      const query = data.binaryData.toString();
-      const seq = query.slice(SEQ_BEGIN, SEQ_END);
+      const rawWsRequest = data.binaryData.toString();
+      const seq = rawWsRequest.slice(SEQ_BEGIN, SEQ_END);
       logger.debug('ws from seq: ', seq);
-      const msgType = query.slice(MSG_TYPE_BEGIN, MSG_TYPE_END);
-      const payload = query.slice(PAYLOAD_BEGIN);
+      const msgType = rawWsRequest.slice(MSG_TYPE_BEGIN, MSG_TYPE_END);
+      const payload = rawWsRequest.slice(PAYLOAD_BEGIN);
       const endpoint = payload.split(' ')[1];
 
-      if (TYPE_HTTP !== msgType) {
+      if (msgType !== TYPE_HTTP) {
         const filteredPayload = filterHeaders(payload, PROXY_HOST);
 
-        if (TYPE_CLOSE === msgType) {
+        if (msgType === TYPE_CLOSE) {
           logger.debug('ws close', seq);
+
           if (connections[seq]) {
             connections[seq].close();
           }
@@ -281,134 +280,133 @@ async function run() {
 
         connections[seq].send(filteredPayload, {}, () => {
           logger.debug('WS REQUEST', 'seq: ' + seq, msgType, endpoint, filteredPayload);
-        })
+        });
       }
 
-      if (typeof data === 'object') {
-        if (TYPE_HTTP === msgType) {
-          payload.split('\r');
-          if (connections[seq]) {
-            logger.info(new Date().toString(), 'connection already exists', seq, data.toString());
-          }
-
-          let query = payload.toString();
-          let rawResponse = '';
-          let parsedRequest = httpParser.parseRequest(query);
-          parsedRequest.headers['Host'] = PROXY_HOST;
-          parsedRequest.headers[ACCEPT_ENCODING] = DISABLE_COMPRESS;
-
-          const upgradeHeader = parsedRequest.headers['Upgrade'] || '';
-          const isWebsocketUpgrade = upgradeHeader.toLowerCase() === 'websocket';
-          if (isWebsocketUpgrade) {
-            logger.debug('upgrade to websocket ', endpoint);
-            logger.debug(query);
-
-            const tunnelUrl = `${PROXY_WS_PROTO}://${PROXY_HOST}:${PROXY_PORT}${endpoint}`;
-            if (connections[seq]) {
-              map[seq] = endpoint;
-              logger.debug('upgrade request', seq.toString(), msgType.charCodeAt(0), endpoint);
-            }
-            logger.debug('create connection ', seq);
-
-            connections[seq] = new WebSocket(tunnelUrl, [], {});
-            map[seq] = tunnelUrl;
-            connections[seq].on('error', (msg) => {
-              logger.error('Connection error for ' + seq, msg);
-            });
-
-            connections[seq].on('upgrade', (msg) => {
-              let response = ['HTTP/1.1 101 Switching Protocols'];
-              let keys = Object.keys(msg.headers);
-              for (let i = 0; i < keys.length; i++) {
-                response.push(`${keys[i]}:${msg.headers[keys[i]]}`);
-              }
-              response.push('\n');
-              connection.sendUTF(seq + TYPE_HTTP + response.join('\n'), () => {
-                logger.debug('send reply upgrade', seq, response.toString());
-              });
-            });
-
-            logger.debug('ws connect', tunnelUrl);
-            connections[seq].on('open', () => {
-              connections[seq].on('message', (data) => {
-                logger.debug('incoming ws message from service', seq, data);
-                connection.sendUTF(seq + TYPE_WEBSOCKET + data, () => {
-                  logger.debug('send reply', seq, data);
-                });
-              });
-            });
-
-            return;
-          }
-
-          let error;
-          let response = await axios({
-            url: `${PROXY_HTTP_PROTO}://${PROXY_HOST}:${PROXY_PORT}${parsedRequest.uri}`,
-            data: parsedRequest.body,
-            headers: parsedRequest.headers,
-            method: parsedRequest.method,
-            responseType: 'arraybuffer',
-            timeout: 5000,
-            validateStatus: function(status) {
-              return status >= 200 && status < 500;
-            },
-          }).catch(function(e) {
-            logger.error('502, Error:', e.message);
-            error = {
-              status: 502,
-              statusText: 'Bad gateway',
-              headers: {
-                'content-type': 'text/html',
-              },
-              data: Buffer.from('Bad gateway', 'utf8')
-            };
-          });
-
-          if(!response) {
-            response = error;
-          }
-          rawResponse = `HTTP/1.1 ${response.status}  ${response.statusText}\r\n`;
-          let keys = Object.keys(response.headers);
-          for (let i = 0; i < keys.length; i++) {
-            if (keys[i] === 'transfer-encoding') {
-              continue;
-            }
-
-            if (keys[i] === 'content-length' && response.headers.hasOwnProperty('transfer-encoding')) {
-              rawResponse += `content-length: ${response.data.length}\r\n`;
-              continue;
-            }
-            rawResponse += `${keys[i]}:${response.headers[keys[i]]}\r\n`;
-          }
-          rawResponse += '\r\n';
-
-          const buffer = Buffer.concat([
-            Buffer.from(seq, 'utf8'),
-            Buffer.from(msgType, 'utf8'),
-            Buffer.from(rawResponse),
-            response.data
-          ]);
-
-          connection.sendBytes(buffer, () => {
-            logger.debug('REQUEST', 'seq:' + seq, 'type:' + msgType.charCodeAt(0), 'endpoint:' + endpoint, data.toString());
-            const realIp = parsedRequest['headers']['X-Real-Ip'] || '-';
-            const statusCode = response.status || '-';
-            const host = parsedRequest['headers']['Host'] || '-';
-            const method = parsedRequest['method'] || '-';
-            const uri = parsedRequest['uri'] || '-';
-            const ua = parsedRequest['headers']['User-Agent'] || '-';
-            const length = response.data.length;
-            logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua} ${length}`);
-          });
-        }
-      } else {
+      if (typeof data !== 'object') {
         connection.sendBytes('', () => {
           logger.debug('pong');
-        })
+        });
       }
+
+      if (msgType !== TYPE_HTTP) {
+        return;
+      }
+
+      payload.split('\r');
+      if (connections[seq]) {
+        logger.info(new Date().toString(), 'connection already exists', seq, data.toString());
+      }
+
+      let rawResponse = '';
+      let parsedRequest = httpParser.parseRequest(payload.toString());
+      parsedRequest.headers['Host'] = PROXY_HOST;
+      parsedRequest.headers[ACCEPT_ENCODING] = DISABLE_COMPRESS;
+
+      const upgradeHeader = parsedRequest.headers['Upgrade'] || '';
+      const isWebsocketUpgrade = upgradeHeader.toLowerCase() === 'websocket';
+      if (isWebsocketUpgrade) {
+        logger.debug('upgrade to websocket ', endpoint);
+
+        const tunnelUrl = `${PROXY_WS_PROTO}://${PROXY_HOST}:${PROXY_PORT}${endpoint}`;
+        if (connections[seq]) {
+          map[seq] = endpoint;
+          logger.debug('upgrade request', seq.toString(), msgType.charCodeAt(0), endpoint);
+        }
+        logger.debug('create connection ', seq);
+
+        connections[seq] = new WebSocket(tunnelUrl, [], {});
+        map[seq] = tunnelUrl;
+        connections[seq].on('error', (msg) => {
+          logger.error('Connection error for ' + seq, msg);
+        });
+
+        connections[seq].on('upgrade', (msg) => {
+          let response = ['HTTP/1.1 101 Switching Protocols'];
+          let keys = Object.keys(msg.headers);
+          for (let i = 0; i < keys.length; i++) {
+            response.push(`${keys[i]}:${msg.headers[keys[i]]}`);
+          }
+          response.push('\n');
+          connection.sendUTF(seq + TYPE_HTTP + response.join('\n'), () => {
+            logger.debug('send reply upgrade', seq, response.toString());
+          });
+        });
+
+        logger.debug('ws connect', tunnelUrl);
+        connections[seq].on('open', () => {
+          connections[seq].on('message', (data) => {
+            logger.debug('incoming ws message from service', seq, data);
+            connection.sendUTF(seq + TYPE_WEBSOCKET + data, () => {
+              logger.debug('send reply', seq, data);
+            });
+          });
+        });
+
+        return;
+      }
+
+      let error;
+      let response = await axios({
+        url: `${PROXY_HTTP_PROTO}://${PROXY_HOST}:${PROXY_PORT}${parsedRequest.uri}`,
+        data: parsedRequest.body,
+        headers: parsedRequest.headers,
+        method: parsedRequest.method,
+        responseType: 'arraybuffer',
+        timeout: 5000,
+        validateStatus: function(status) {
+          return status >= 200 && status < 500;
+        },
+      }).catch(function(e) {
+        logger.error('502, Error:', e.message);
+        error = {
+          status: 502,
+          statusText: 'Bad gateway',
+          headers: {
+            'content-type': 'text/html',
+          },
+          data: Buffer.from('Bad gateway', 'utf8')
+        };
+      });
+
+      if(!response) {
+        response = error;
+      }
+      rawResponse = `HTTP/1.1 ${response.status}  ${response.statusText}\r\n`;
+      let keys = Object.keys(response.headers);
+      for (let i = 0; i < keys.length; i++) {
+        if (keys[i] === 'transfer-encoding') {
+          continue;
+        }
+
+        if (keys[i] === 'content-length' && response.headers.hasOwnProperty('transfer-encoding')) {
+          rawResponse += `content-length: ${response.data.length}\r\n`;
+          continue;
+        }
+        rawResponse += `${keys[i]}:${response.headers[keys[i]]}\r\n`;
+      }
+      rawResponse += '\r\n';
+
+      const buffer = Buffer.concat([
+        Buffer.from(seq, 'utf8'),
+        Buffer.from(msgType, 'utf8'),
+        Buffer.from(rawResponse),
+        response.data
+      ]);
+
+      connection.sendBytes(buffer, () => {
+        logger.debug('REQUEST', 'seq:' + seq, 'type:' + msgType.charCodeAt(0), 'endpoint:' + endpoint, data.toString());
+        const realIp = parsedRequest['headers']['X-Real-Ip'] || '-';
+        const statusCode = response.status || '-';
+        const host = parsedRequest['headers']['Host'] || '-';
+        const method = parsedRequest['method'] || '-';
+        const uri = parsedRequest['uri'] || '-';
+        const ua = parsedRequest['headers']['User-Agent'] || '-';
+        const length = response.data.length;
+        logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua} ${length}`);
+      });
     });
   });
-
 }
 
-run().then().catch((e) => { logger.error(e); });
+run().catch((err) => logger.error(err));
