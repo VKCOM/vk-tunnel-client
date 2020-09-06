@@ -339,10 +339,10 @@ async function run() {
 
         connections[seq].on('open', () => {
           connections[seq].on('message', (data) => {
-            logger.debug('incoming ws message from service', seq);
+            logger.debug('incoming ws message from service', seq, data);
 
             connection.sendUTF(seq + TYPE_WEBSOCKET + data, () => {
-              logger.debug('send reply', seq);
+              logger.debug('send reply', seq, data);
             });
           });
         });
