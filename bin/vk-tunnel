@@ -296,7 +296,8 @@ async function run() {
         logger.info('connection already exists', seq);
       }
 
-      const parsedRequest = httpParser.parseRequest(payload.toString());
+      const rawRequest = payload.toString();
+      const parsedRequest = httpParser.parseRequest(rawRequest);
 
       parsedRequest.headers.Host = PROXY_HOST;
       parsedRequest.headers[ACCEPT_ENCODING] = DISABLE_COMPRESS;
@@ -306,6 +307,7 @@ async function run() {
 
       if (isWebsocketUpgrade) {
         logger.debug('upgrade to websocket', endpoint);
+        logger.debug('raw request:\n' + rawRequest.trim());
 
         const tunnelUrl = `${PROXY_WS_PROTO}://${PROXY_HOST}:${PROXY_PORT}${endpoint}`;
 
