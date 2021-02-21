@@ -144,12 +144,32 @@ async function getTunnelToken() {
     vault.set('user_id', user_id);
   }
 
-  const response = await api('apps.getTunnelToken', {version: CLIENT_VERSION});
+  const params = {
+    version: CLIENT_VERSION,
+  };
+
+  const app_id = cfg.app_id;
+  if (app_id) {
+    params.app_id = app_id;
+  }
+
+  const endpoints = cfg.endpoints;
+  if (endpoints) {
+    params.endpoints = endpoints.join(',');
+  }
+
+  const response = await api('apps.getTunnelToken', params);
   if (response.token) {
     cfg.tunnelToken = response.token;
     cfg.hostSuffix = response.suffix;
     cfg.wsAddr = response.host;
     cfg.wsURL = response.url;
+
+    const warnings = response.warnings;
+    if (warnings) {
+      warnings.map((warning) => logger.error(warning));
+    }
+
     logger.debug('tunnel token', cfg.tunnelToken);
     return cfg.tunnelToken;
   } else {
