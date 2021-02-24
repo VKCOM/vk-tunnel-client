@@ -144,12 +144,32 @@ async function getTunnelToken() {
     vault.set('user_id', user_id);
   }
 
-  const response = await api('apps.getTunnelToken', {version: CLIENT_VERSION});
+  const params = {
+    version: CLIENT_VERSION,
+  };
+
+  const app_id = cfg.app_id;
+  if (app_id) {
+    params.app_id = app_id;
+  }
+
+  const endpoints = cfg.endpoints;
+  if (endpoints) {
+    params.endpoints = endpoints.join(',');
+  }
+
+  const response = await api('apps.getTunnelToken', params);
   if (response.token) {
     cfg.tunnelToken = response.token;
     cfg.hostSuffix = response.suffix;
     cfg.wsAddr = response.host;
     cfg.wsURL = response.url;
+
+    const warnings = response.warnings;
+    if (warnings) {
+      warnings.map((warning) => logger.error(warning));
+    }
+
     logger.debug('tunnel token', cfg.tunnelToken);
     return cfg.tunnelToken;
   } else {
@@ -174,7 +194,8 @@ function getHelpMessage() {
       '--host (PROXY_HOST)\t\t- host of your application (for example: localhost)\n' +
       '--port (PROXY_POST)\t\t- port of your application (for example: 10888)\n' +
       '--http-protocol (PROXY_HTTP_PROTO)\t- http/https (by default: http)\n' +
-      '--ws-protocol (PROXY_WS_PROTO)\t\t- ws/wss (by default: ws)\n'
+      '--ws-protocol (PROXY_WS_PROTO)\t\t- ws/wss (by default: ws)\n' +
+      '--timeout (PROXY_TIMEOUT)\t\t- timeout for requests to your application (by default: 5000)\n'
     );
 }
 
@@ -202,6 +223,9 @@ function parseOptions() {
       case '--insecure':
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = value === '1' ? '0' : '1';
         break;
+      case '--timeout':
+        process.env.PROXY_TIMEOUT = value;
+        break;
     }
   }
 }
@@ -217,6 +241,7 @@ async function run() {
   const PROXY_HTTP_PROTO = process.env.PROXY_HTTP_PROTO || 'http';
   const PROXY_WS_PROTO = process.env.PROXY_WS_PROTO || 'ws';
   const PROXY_PORT = process.env.PROXY_PORT || '10888';
+  const PROXY_TIMEOUT = parseInt(process.env.PROXY_TIMEOUT) || 5000;
 
   const url = WS_ADDRESS + '/' + WS_URL;
   logger.debug('initialize', url);
@@ -348,7 +373,7 @@ async function run() {
             headers: parsedRequest.headers,
             method: parsedRequest.method,
             responseType: 'arraybuffer',
-            timeout: 5000,
+            timeout: PROXY_TIMEOUT,
             validateStatus: function(status) {
               return status >= 200 && status < 500;
             },
