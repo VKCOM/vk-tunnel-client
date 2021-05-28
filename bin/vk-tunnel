@@ -158,11 +158,19 @@ async function getTunnelToken() {
     params.endpoints = endpoints.join(',');
   }
 
+  const staging = cfg.staging;
+  if (staging) {
+    params.staging = staging;
+  }
+
   const response = await api('apps.getTunnelToken', params);
   if (response.token) {
     cfg.tunnelToken = response.token;
     cfg.hostSuffix = response.suffix;
+    cfg.tunnelUrlFromAPI = response.tunnel_url;
     cfg.wsAddr = response.host;
+
+
     cfg.wsURL = response.url;
 
     const warnings = response.warnings;
@@ -276,7 +284,7 @@ async function run() {
         '\n')
     );
 
-    console.log('open: ' + 'https://user' + cfg.user_id + '-' + cfg.hostSuffix + '.wormhole.vk-apps.com/');
+    console.log('open: ' + cfg.tunnelUrlFromAPI);
 
     connection.on('close', (code) => {
       logger.info('disconnected, code:', code);
