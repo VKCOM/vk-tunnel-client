@@ -1,12 +1,12 @@
 {
   "name": "@vkontakte/vk-tunnel",
-  "version": "0.1.2-alpha.0",
+  "version": "0.1.2",
   "lockfileVersion": 2,
   "requires": true,
   "packages": {
     "": {
       "name": "@vkontakte/vk-tunnel",
-      "version": "0.1.2-alpha.0",
+      "version": "0.1.2",
       "license": "MIT",
       "dependencies": {
         "axios": "^0.21.1",
