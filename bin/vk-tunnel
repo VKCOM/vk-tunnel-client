@@ -115,6 +115,9 @@ async function api(method, params) {
       if (res.error.error_code === OAUTH_USER_REVOKE_TOKEN_ERROR) {
         vault.delete('access_token');
         vault.delete('user_id');
+
+        delete cfg.access_token;
+        delete cfg.user_id;
       }
       logger.error(chalk.red(res.error.error_code + ': ' + res.error.error_msg));
       logger.warn(chalk.yellow('Previous settings has been removed.'));
@@ -181,6 +184,11 @@ async function getTunnelToken() {
     logger.debug('tunnel token', cfg.tunnelToken);
     return cfg.tunnelToken;
   } else {
+    const retriedToken = await getTunnelToken();
+    if (retriedToken) {
+      return retriedToken;
+    }
+
     logger.error('Can\'t retrieve tunnel token');
     process.exit(1);
   }
