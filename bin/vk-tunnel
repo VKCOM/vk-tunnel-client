@@ -36,8 +36,6 @@ const mergedJSON = {
   ...configJSON_local
 };
 
-console.log(mergedJSON);
-
 const cfg = mergedJSON || {};
 
 const TUNNEL_APP_ID = 7357112;
