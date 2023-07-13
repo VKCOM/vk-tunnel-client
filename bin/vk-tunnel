@@ -22,7 +22,7 @@ const logger = pino({
 });
 
 let configJSON = {};
-let configJSON_local = {};
+let configJSONLocal = {};
 
 if (fs.existsSync('./vk-tunnel-config.json')) {
   configJSON = require('require-module')('./vk-tunnel-config.json');
