@@ -21,12 +21,22 @@ const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime
 });
 
-
 let configJSON = {};
+let configJSONLocal = {};
+
 if (fs.existsSync('./vk-tunnel-config.json')) {
   configJSON = require('require-module')('./vk-tunnel-config.json');
 }
-const cfg = configJSON || {};
+if (fs.existsSync('./vk-tunnel-config.local.json')) {
+  configJSON_local = require('require-module')('./vk-tunnel-config.local.json');
+}
+
+const mergedJSON = {
+  ...configJSON,
+  ...configJSON_local
+};
+
+const cfg = mergedJSON || {};
 
 const TUNNEL_APP_ID = 7357112;
 const CODE_SUCCESS = 200;
