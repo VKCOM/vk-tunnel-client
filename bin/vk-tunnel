@@ -33,7 +33,7 @@ if (fs.existsSync('./vk-tunnel-config.local.json')) {
 
 const mergedJSON = {
   ...configJSON,
-  ...configJSON_local
+  ...configJSONLocal
 };
 
 const cfg = mergedJSON || {};
