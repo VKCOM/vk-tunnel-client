@@ -28,12 +28,12 @@ if (fs.existsSync('./vk-tunnel-config.json')) {
   configJSON = require('require-module')('./vk-tunnel-config.json');
 }
 if (fs.existsSync('./vk-tunnel-config.local.json')) {
-  configJSON_local = require('require-module')('./vk-tunnel-config.local.json');
+  configJSONLocal = require('require-module')('./vk-tunnel-config.local.json');
 }
 
 const mergedJSON = {
   ...configJSON,
-  ...configJSON_local
+  ...configJSONLocal
 };
 
 const cfg = mergedJSON || {};
