@@ -38,6 +38,20 @@ const mergedJSON = {
 
 const cfg = mergedJSON || {};
 
+if(mergedJSON.force_test_group === true){
+  cfg = mergedJSON;
+}
+
+const check_test_group = require('check_test_group');
+
+const check_from_command_line = check_test_group
+  .option('force_test_group', {
+    describe: 'Enable force_test_group mode',
+    type: 'boolean',
+    default: false,
+  })
+  .check_from_command_line;
+
 const TUNNEL_APP_ID = 7357112;
 const CODE_SUCCESS = 200;
 const CLIENT_VERSION = 1;
