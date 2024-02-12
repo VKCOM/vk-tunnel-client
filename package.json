@@ -6,7 +6,11 @@
     "vk-tunnel": "./bin/vk-tunnel"
   },
   "scripts": {
-    "tunnel": "node bin/vk-tunnel"
+    "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node18.0 --outfile=bin/vk-tunnel.js",
+    "lint:eslint": "eslint ./src --ext=ts",
+    "lint:prettier": "prettier --check --ignore-unknown .",
+    "eslint:fix": "eslint ./src --ext=ts --fix",
+    "prepublishOnly": "yarn build"
   },
   "repository": {
     "type": "git",
@@ -25,5 +29,19 @@
     "require-module": "^0.1.0",
     "websocket": "^1.0.31",
     "ws": "^7.2.3"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "5.50.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "@vkontakte/eslint-plugin": "^1.2.0",
+    "@vkontakte/prettier-config": "^0.1.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "2.29.1",
+    "eslint-plugin-react": "^7.16.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^2.7.1",
+    "typescript": "5.1.6"
   }
 }
