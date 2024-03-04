@@ -3,7 +3,7 @@
   "license": "MIT",
   "version": "0.1.4",
   "bin": {
-    "vk-tunnel": "./bin/vk-tunnel"
+    "vk-tunnel": "./bin/vk-tunnel.js"
   },
   "scripts": {
     "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node18.0 --outfile=bin/vk-tunnel.js",
@@ -19,18 +19,21 @@
   "dependencies": {
     "axios": "^0.21.1",
     "chalk": "^3.0.0",
-    "configstore": "^5.0.1",
+    "configstore": "^6.0.0",
     "http-string-parser": "0.0.6",
-    "node-fetch": "^2.6.0",
-    "parse-raw-http": "0.0.1",
-    "pino": "^5.17.0",
-    "pino-pretty": "^3.6.1",
+    "minimist": "^1.2.8",
+    "pino": "^8.19.0",
+    "pino-pretty": "^10.3.1",
     "prompts": "^2.3.2",
-    "require-module": "^0.1.0",
-    "websocket": "^1.0.31",
-    "ws": "^7.2.3"
+    "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@types/configstore": "^6.0.2",
+    "@types/http-string-parser": "^0.0.33",
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^20.11.19",
+    "@types/prompts": "^2.4.9",
+    "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "5.50.0",
     "@typescript-eslint/parser": "^5.0.0",
     "@vkontakte/eslint-plugin": "^1.2.0",
