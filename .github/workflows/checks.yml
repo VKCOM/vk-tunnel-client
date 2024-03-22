@@ -1,0 +1,22 @@
+name: 'Checks'
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEVTOOLS_GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - name: Install Node.js dependencies
+        run: yarn install
+      - name: Lint Prettier
+        run: yarn lint:prettier
+      - name: Lint ESLint
+        run: yarn lint:eslint
