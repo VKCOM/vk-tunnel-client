@@ -12,7 +12,7 @@
 Если этот PR закрывает Issue, то укажите ссылку на него. Используйте доступные ключевые слова (см. https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests).
 
 Пример:
-- close #123 
+- close #123
 -->
 
 ## Описание проблемы
@@ -31,7 +31,6 @@
 <!--
 Напишите подробности о том, что делает PR.
 -->
-
 
 ## Способ проверки с шагами
 
