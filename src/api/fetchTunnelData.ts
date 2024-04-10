@@ -1,4 +1,5 @@
 import querystring from 'node:querystring';
+import fetch from 'node-fetch';
 import { API_HOST } from '../constants';
 
 interface VkApiError {
