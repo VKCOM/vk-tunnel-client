@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import { OAUTH_HOST, TUNNEL_APP_ID } from '../constants';
 import { VkAuthError } from '../types';
 
