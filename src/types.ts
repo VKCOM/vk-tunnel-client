@@ -22,9 +22,15 @@ export interface UserProxyAppSettings {
   timeout: number;
   host: string;
   port: number;
+  insecure: 0 | 1;
   app_id?: number;
   staging?: boolean;
   endpoints?: string[];
+}
+
+export interface UserProxyAppSettingsArgs extends Omit<UserProxyAppSettings, 'httpProtocol' | 'wsProtocol'> {
+  'http-protocol': HttpProtocol;
+  'ws-protocol': WsProtocol;
 }
 
 export interface TunnelConnectionData {
