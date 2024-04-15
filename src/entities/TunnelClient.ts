@@ -1,4 +1,5 @@
 import { RawData, WebSocket } from 'ws';
+import chalk from 'chalk';
 import httpParser from 'http-string-parser';
 import pino, { Logger } from 'pino';
 import pinoPretty from 'pino-pretty';
@@ -11,7 +12,6 @@ import {
   TunnelConnectionData,
   UserProxyAppSettings,
 } from '../types';
-import chalk from 'chalk';
 
 export class TunnelClient {
   private SEQ_BEGIN = 0;
@@ -49,6 +49,8 @@ export class TunnelClient {
     );
     this.HttpProxy = new HttpProxy(userSettings, this.logger);
     this.WsProxy = new WsProxy(userSettings, this.logger);
+
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = this.userSettings.insecure.toString();
   }
 
   public onConnectionOpen() {
