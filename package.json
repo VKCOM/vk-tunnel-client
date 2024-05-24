@@ -1,7 +1,7 @@
 {
   "name": "@vkontakte/vk-tunnel",
   "license": "MIT",
-  "version": "0.2.0",
+  "version": "0.2.1-beta.0",
   "bin": {
     "vk-tunnel": "./bin/vk-tunnel.js"
   },
