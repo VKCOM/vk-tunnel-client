@@ -1,6 +1,6 @@
 import querystring from 'node:querystring';
-import fetch from 'node-fetch';
 import { API_HOST } from '../constants';
+import { axiosWithRetry } from './axiosWithRetry';
 
 interface VkApiError {
   error: {
@@ -41,14 +41,11 @@ export async function fetchTunnelData({
   if (staging) params['staging'] = staging;
   if (endpoints) params['endpoints'] = endpoints.join(',');
 
-  try {
-    const tunnelDataJson = await fetch(
-      `${API_HOST}apps.getTunnelToken?${querystring.stringify(params)}`,
-    );
+  const tunnelData = await axiosWithRetry({
+    url: `${API_HOST}apps.getTunnelToken?${querystring.stringify(params)}`,
+    options: {},
+    onError: (error) => console.error('An error occurred when requesting tunnel settings:', error),
+  });
 
-    return (await tunnelDataJson.json()) as FetchTunnelDataResponse | VkApiError;
-  } catch (error) {
-    console.log('An error occurred when requesting tunnel settings', error);
-    throw error;
-  }
+  return tunnelData.data as FetchTunnelDataResponse | VkApiError;
 }
