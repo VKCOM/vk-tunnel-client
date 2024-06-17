@@ -1,6 +1,6 @@
-import fetch from 'node-fetch';
 import { OAUTH_HOST, TUNNEL_APP_ID } from '../constants';
 import { VkAuthError } from '../types';
+import { axiosWithRetry } from './axiosWithRetry';
 
 interface FetchAccessTokenResponse {
   user_id: number;
@@ -12,14 +12,11 @@ interface FetchAccessTokenRequest {
 }
 
 export async function fetchUserData({ deviceId }: FetchAccessTokenRequest) {
-  try {
-    const userData = await fetch(
-      `${OAUTH_HOST}code_auth_token?device_id=${deviceId}&client_id=${TUNNEL_APP_ID}`,
-    );
+  const userData = await axiosWithRetry({
+    url: `${OAUTH_HOST}code_auth_token?device_id=${deviceId}&client_id=${TUNNEL_APP_ID}`,
+    options: {},
+    onError: (error) => console.error('An error occurred when requesting user data:', error),
+  });
 
-    return (await userData.json()) as FetchAccessTokenResponse | VkAuthError;
-  } catch (error) {
-    console.log('An error occurred when requesting user data', error);
-    throw error;
-  }
+  return userData.data as FetchAccessTokenResponse | VkAuthError;
 }

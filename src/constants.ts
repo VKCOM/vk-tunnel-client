@@ -21,3 +21,6 @@ export const API_HOST = 'https://api.vk.com/method/';
 export const API_VERSION = '5.199';
 export const OAUTH_USER_REVOKE_TOKEN_ERROR = 5;
 export const TUNNEL_APP_ID = 7357112;
+
+export const TUNNEL_DATA_REQUEST_RETRIES_LIMIT = 3;
+export const TUNNEL_DATA_REQUEST_RETRY_DELAY_MS = 2000;
