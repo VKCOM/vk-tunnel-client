@@ -9,7 +9,8 @@
     "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node16.0 --outfile=bin/vk-tunnel.js",
     "lint:eslint": "eslint ./src --ext=ts",
     "lint:prettier": "prettier --check --ignore-unknown .",
-    "eslint:fix": "eslint ./src --ext=ts --fix",
+    "lint:ci": "yarn lint:eslint && yarn lint:prettier",
+    "lint:fix": "eslint ./src --ext=ts --fix",
     "prepublishOnly": "yarn build"
   },
   "repository": {
