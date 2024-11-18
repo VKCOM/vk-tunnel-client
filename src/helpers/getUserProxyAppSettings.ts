@@ -16,8 +16,9 @@ export function getUserProxyAppSettings(): UserProxyAppSettings {
   const {
     'http-protocol': httpProtocol,
     'ws-protocol': wsProtocol,
+    'ws-origin': wsOrigin,
     ...userSettings
   } = Object.assign({ ...DEFAULT_USER_PROXY_APP_SETTINGS, ...userConfigFile }, cliArgs);
 
-  return { httpProtocol, wsProtocol, ...userSettings };
+  return { wsOrigin, httpProtocol, wsProtocol, ...userSettings };
 }

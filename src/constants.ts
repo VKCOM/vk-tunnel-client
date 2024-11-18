@@ -11,6 +11,7 @@ export const DEFAULT_USER_PROXY_APP_SETTINGS = {
   'port': Number(process.env.PROXY_PORT ?? 10888),
   'host': process.env.PROXY_HOST ?? 'localhost',
   'insecure': 0,
+  'ws-origin': 1,
   'app_id': undefined,
   'staging': undefined,
   'endpoints': undefined,
