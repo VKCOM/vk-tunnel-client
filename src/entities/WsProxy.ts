@@ -1,28 +1,17 @@
 import WebSocket from 'ws';
-import { Logger } from 'pino';
+import { logger } from './Logger';
 import {
-  MessageType,
+  MessageTypeToSend,
+  MessageTypeFromBack,
   ProxiedNetworkPacket,
   SendResponseToProxyServer,
   UserProxyAppSettings,
 } from '../types';
 
 export class WsProxy {
-  private static ACCEPT_ENCODING = 'Accept-Encoding';
-  private static DISABLE_COMPRESS = 'gzip;q=0,deflate;q=0';
+  private connections: Map<string, WebSocket> = new Map();
 
-  private connections: Record<string, WebSocket> = {};
-
-  public constructor(
-    private readonly userSettings: UserProxyAppSettings,
-    private readonly logger: Logger,
-  ) {}
-
-  private transformPayload(payload: string, proxyHost: string) {
-    return payload
-      .replace(/Accept-Encoding:.*/, WsProxy.ACCEPT_ENCODING + ': ' + WsProxy.DISABLE_COMPRESS)
-      .replace(/Host: .*/, 'Host: ' + proxyHost);
-  }
+  public constructor(private readonly userSettings: UserProxyAppSettings) {}
 
   private filterWebSocketHeaders(headers: Record<string, string>) {
     const allowedHeaders = [
@@ -31,40 +20,47 @@ export class WsProxy {
       'Sec-WebSocket-Key',
       'Sec-WebSocket-Version',
     ];
+
     return Object.fromEntries(
       Object.entries(headers).filter(([key]) => allowedHeaders.includes(key)),
     );
   }
 
   private closeConnection(seq: string) {
-    this.connections[seq].close();
+    this.connections.get(seq)?.close();
   }
 
   private createConnection(
     seq: string,
-    proxiedServerUrl: string,
+    endpoint: string,
     headers: Record<string, string>,
     sendResponseToVkProxyServer: SendResponseToProxyServer,
   ) {
     const subprotocol = headers['Sec-Websocket-Protocol'];
-    const host = this.userSettings.wsOrigin ? this.userSettings.host : undefined;
-    const origin = this.userSettings.wsOrigin
-      ? `${this.userSettings.wsProtocol}://${this.userSettings.host}:${this.userSettings.port}`
-      : undefined;
+    const proxiedServerOrigin = `${this.userSettings.wsProtocol}://${this.userSettings.host}:${this.userSettings.port}`;
+    const proxiedServerUrl = `${proxiedServerOrigin}${endpoint}`;
 
     const websocket = new WebSocket(proxiedServerUrl, subprotocol, {
-      host,
-      origin,
+      host: this.userSettings.wsOrigin ? this.userSettings.host : undefined,
+      origin: this.userSettings.wsOrigin ? proxiedServerOrigin : undefined,
       headers: this.filterWebSocketHeaders(headers),
     });
 
-    websocket.on('error', (msg) => this.logger.error('Connection error for ' + seq, msg));
+    websocket.on('error', (msg) => logger.error('Connection error for ' + seq, msg));
 
     websocket.on('open', () => {
-      this.connections[seq].on('message', (data) => {
-        this.logger.debug('incoming ws message from service', seq, data);
-        sendResponseToVkProxyServer(`${seq}${MessageType.WEBSOCKET}${data}`, () => {
-          this.logger.debug('send reply', seq, data);
+      websocket.on('message', (data, isBinary) => {
+        logger.debug('incoming ws message from service', seq, data, isBinary);
+
+        const dataBuf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
+        const seqBuf = Buffer.from(seq, 'utf8');
+        const typeBuf = Buffer.from(MessageTypeToSend.WEBSOCKET, 'utf8');
+        const stringMessage = `${seq}${MessageTypeToSend.WEBSOCKET}${data}`;
+
+        const finalMessage = isBinary ? Buffer.concat([seqBuf, typeBuf, dataBuf]) : stringMessage;
+
+        sendResponseToVkProxyServer(finalMessage, () => {
+          logger.debug('send reply', seq, data, isBinary);
         });
       });
     });
@@ -76,41 +72,32 @@ export class WsProxy {
       ];
       const response = responseHeaders.join('\n') + '\n\n';
 
-      sendResponseToVkProxyServer(seq + MessageType.HTTP + response, () => {
-        this.logger.debug('send reply upgrade', seq, response.toString());
+      sendResponseToVkProxyServer(`${seq}${MessageTypeToSend.HTTP}${response}`, () => {
+        logger.debug('send reply upgrade', seq, response.toString());
       });
     });
 
-    this.connections[seq] = websocket;
+    this.connections.set(seq, websocket);
   }
 
   public async proxy(
     request: ProxiedNetworkPacket,
-    sendResponseToVkProxyServer: SendResponseToProxyServer,
+    sendResponseToVkTunnelBack: SendResponseToProxyServer,
   ) {
     const { messageType, payload, isWebsocketUpgrade, seq, endpoint, parsedRequest } = request;
 
-    if (messageType !== MessageType.HTTP) {
-      const filteredPayload = this.transformPayload(payload, this.userSettings.host);
+    if (messageType === MessageTypeFromBack.WEBSOCKET_CLOSE) {
+      return this.closeConnection(seq);
+    }
 
-      if (messageType === MessageType.WEBSOCKET_CLOSE) {
-        return this.closeConnection(seq);
-      }
-
-      this.connections[seq].send(filteredPayload, {}, () => {
-        this.logger.debug('WS REQUEST', 'seq: ' + seq, messageType, endpoint, filteredPayload);
+    if (messageType !== MessageTypeFromBack.HTTP) {
+      this.connections.get(seq)?.send(payload, {}, () => {
+        logger.debug('WS REQUEST', 'seq: ' + seq, messageType, endpoint, payload);
       });
     }
 
     if (isWebsocketUpgrade) {
-      const proxiedServerUrl = `${this.userSettings.wsProtocol}://${this.userSettings.host}:${this.userSettings.port}${endpoint}`;
-
-      this.createConnection(
-        seq,
-        proxiedServerUrl,
-        parsedRequest.headers,
-        sendResponseToVkProxyServer,
-      );
+      this.createConnection(seq, endpoint, parsedRequest.headers, sendResponseToVkTunnelBack);
     }
   }
 }

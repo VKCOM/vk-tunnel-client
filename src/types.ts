@@ -10,9 +10,15 @@ export enum WsProtocol {
   WSS = 'wss',
 }
 
-export enum MessageType {
+export enum MessageTypeToSend {
   HTTP = '\0',
   WEBSOCKET = '\x01',
+}
+
+export enum MessageTypeFromBack {
+  HTTP = '\0',
+  WEBSOCKET_BINARY = '\x02',
+  WEBSOCKET_TEXT = '\x01',
   WEBSOCKET_CLOSE = '\b',
 }
 
@@ -51,9 +57,9 @@ export interface UserData {
 
 export interface ProxiedNetworkPacket {
   seq: string;
-  payload: string;
+  payload: ArrayBuffer | Buffer[] | string;
   endpoint: string;
-  messageType: MessageType;
+  messageType: MessageTypeFromBack;
   isWebsocketUpgrade: boolean;
   parsedRequest: ParseRequestResult;
 }
