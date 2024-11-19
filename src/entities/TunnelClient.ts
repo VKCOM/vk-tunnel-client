@@ -1,54 +1,37 @@
 import { RawData, WebSocket } from 'ws';
 import chalk from 'chalk';
 import httpParser from 'http-string-parser';
-import pino, { Logger } from 'pino';
-import pinoPretty from 'pino-pretty';
 import { WsProxy } from './WsProxy';
 import { HttpProxy } from './HttpProxy';
+import { logger } from './Logger';
 import { showSuccessLog } from '../helpers';
 import {
-  MessageType,
+  MessageTypeFromBack,
   ProxiedNetworkPacket,
   TunnelConnectionData,
   UserProxyAppSettings,
 } from '../types';
 
 export class TunnelClient {
-  private SEQ_BEGIN = 0;
-  private SEQ_END = 8;
-  private MSG_TYPE_BEGIN = 8;
-  private MSG_TYPE_END = 9;
-  private PAYLOAD_BEGIN = 9;
-  private DISABLE_COMPRESS = 'gzip;q=0,deflate;q=0';
-  private ACCEPT_ENCODING = 'Accept-Encoding';
+  private readonly SEQ_BEGIN = 0;
+  private readonly SEQ_END = 8;
+  private readonly MSG_TYPE_BEGIN = 8;
+  private readonly MSG_TYPE_END = 9;
+  private readonly PAYLOAD_BEGIN = 9;
 
-  private userSettings: UserProxyAppSettings;
-  private tunnelData: TunnelConnectionData;
+  private readonly DISABLE_COMPRESS = 'gzip;q=0,deflate;q=0';
+  private readonly ACCEPT_ENCODING = 'Accept-Encoding';
+
   private HttpProxy: HttpProxy;
   private WsProxy: WsProxy;
-  private socket: WebSocket;
-  private logger: Logger;
 
   public constructor(
-    socket: WebSocket,
-    userSettings: UserProxyAppSettings,
-    tunnelData: TunnelConnectionData,
+    private readonly socket: WebSocket,
+    private readonly tunnelData: TunnelConnectionData,
+    private readonly userSettings: UserProxyAppSettings,
   ) {
-    this.userSettings = userSettings;
-    this.tunnelData = tunnelData;
-    this.socket = socket;
-    this.logger = pino(
-      {
-        level: 'info',
-        base: {},
-        timestamp: pino.stdTimeFunctions.isoTime,
-      },
-      pinoPretty({
-        colorize: true,
-      }),
-    );
-    this.HttpProxy = new HttpProxy(userSettings, this.logger);
-    this.WsProxy = new WsProxy(userSettings, this.logger);
+    this.HttpProxy = new HttpProxy(userSettings);
+    this.WsProxy = new WsProxy(userSettings);
 
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = this.userSettings.insecure.toString();
   }
@@ -61,43 +44,53 @@ export class TunnelClient {
   }
 
   public onConnectionClose(code: string) {
-    this.logger.info('disconnected, code:', code);
+    logger.info('disconnected, code:', code);
   }
 
   public onConnectionError(error: string) {
-    this.logger.error('wsMain error', error);
+    logger.error('wsMain error', error);
   }
 
-  private sendResponseToVkProxyServer(data: Buffer | string, callback?: (error?: Error) => void) {
-    this.socket.send(data, callback ? callback : undefined);
+  private sendResponseToVkTunnelBack(data: Buffer | string, callback?: (error?: Error) => void) {
+    this.socket.send(data, callback);
   }
 
-  private parseProxyRequest(query: string): ProxiedNetworkPacket {
-    const seq = query.slice(this.SEQ_BEGIN, this.SEQ_END);
-    const messageType = query.slice(this.MSG_TYPE_BEGIN, this.MSG_TYPE_END) as MessageType;
-    const payload = query.slice(this.PAYLOAD_BEGIN);
-    const endpoint = payload.split(' ')[1];
+  private transformPayload(payload: Buffer[] | ArrayBuffer) {
+    return payload
+      .toString()
+      .replace(/Accept-Encoding:.*/, this.ACCEPT_ENCODING + ': ' + this.DISABLE_COMPRESS)
+      .replace(/Host: .*/, 'Host: ' + this.userSettings.host);
+  }
 
-    payload.split('\r');
+  private parseProxyRequest(data: RawData): ProxiedNetworkPacket {
+    const seq = data.slice(this.SEQ_BEGIN, this.SEQ_END).toString();
+    const rawPayload = data.slice(this.PAYLOAD_BEGIN);
+    const messageType = data
+      .slice(this.MSG_TYPE_BEGIN, this.MSG_TYPE_END)
+      .toString() as MessageTypeFromBack;
+
+    const isWebSocketBinary = messageType === MessageTypeFromBack.WEBSOCKET_BINARY;
+    const payload = isWebSocketBinary ? rawPayload : this.transformPayload(rawPayload);
     const parsedRequest = httpParser.parseRequest(payload.toString());
 
     const upgradeHeader = parsedRequest.headers['Upgrade'] || '';
     const isWebsocketUpgrade = upgradeHeader.toLowerCase() === 'websocket';
 
+    const endpoint = payload.toString().split(' ')[1];
+
     return { seq, endpoint, messageType, isWebsocketUpgrade, parsedRequest, payload };
   }
 
   public async onMessage(data: RawData) {
-    const query = data.toString();
-    const packetData = this.parseProxyRequest(query);
+    const packetData = this.parseProxyRequest(data);
 
     packetData.parsedRequest.headers['Host'] = this.userSettings.host;
     packetData.parsedRequest.headers[this.ACCEPT_ENCODING] = this.DISABLE_COMPRESS;
 
-    if (packetData.messageType === MessageType.HTTP && !packetData.isWebsocketUpgrade) {
-      this.HttpProxy.proxy(packetData, this.sendResponseToVkProxyServer.bind(this));
+    if (packetData.messageType === MessageTypeFromBack.HTTP && !packetData.isWebsocketUpgrade) {
+      this.HttpProxy.proxy(packetData, this.sendResponseToVkTunnelBack.bind(this));
     } else {
-      this.WsProxy.proxy(packetData, this.sendResponseToVkProxyServer.bind(this));
+      this.WsProxy.proxy(packetData, this.sendResponseToVkTunnelBack.bind(this));
     }
   }
 }

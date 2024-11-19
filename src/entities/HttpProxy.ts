@@ -1,15 +1,9 @@
 import axios, { AxiosResponse, Method } from 'axios';
-import { Logger } from 'pino';
+import { logger } from './Logger';
 import { ProxiedNetworkPacket, SendResponseToProxyServer, UserProxyAppSettings } from '../types';
 
 export class HttpProxy {
-  private userSettings: UserProxyAppSettings;
-  private logger: Logger;
-
-  public constructor(userSettings: UserProxyAppSettings, logger: Logger) {
-    this.userSettings = userSettings;
-    this.logger = logger;
-  }
+  public constructor(private readonly userSettings: UserProxyAppSettings) {}
 
   private async getResponseFromProxiedServer(
     proxiedServerUrl: string,
@@ -28,7 +22,7 @@ export class HttpProxy {
     }).catch((error) => console.log(error));
   }
 
-  private generateRawResponseForVkProxyServer(proxiedServerResponse: AxiosResponse) {
+  private generateHeadersForVkTunnelBack(proxiedServerResponse: AxiosResponse) {
     let rawResponse = `HTTP/1.1 ${proxiedServerResponse.status} ${proxiedServerResponse.statusText}\r\n`;
     let keys = Object.keys(proxiedServerResponse.headers);
 
@@ -54,7 +48,7 @@ export class HttpProxy {
 
   public async proxy(
     packetData: ProxiedNetworkPacket,
-    sendResponseToVkProxyServer: SendResponseToProxyServer,
+    sendResponseToVkTunnelBack: SendResponseToProxyServer,
   ) {
     const { seq, parsedRequest, messageType, endpoint } = packetData;
     const proxiedServerUrl = `${this.userSettings.httpProtocol}://${this.userSettings.host}:${this.userSettings.port}${parsedRequest.uri}`;
@@ -68,14 +62,14 @@ export class HttpProxy {
     const buffer = Buffer.concat([
       Buffer.from(seq, 'utf8'),
       Buffer.from(messageType, 'utf8'),
-      Buffer.from(this.generateRawResponseForVkProxyServer(response)),
+      Buffer.from(this.generateHeadersForVkTunnelBack(response)),
       response.data,
     ]);
 
-    sendResponseToVkProxyServer(buffer, () => {
-      this.logger.debug(
+    sendResponseToVkTunnelBack(buffer, () => {
+      logger.debug(
         'REQUEST',
-        `seq: {$seq}`,
+        `seq: ${seq}`,
         `type: ${messageType.charCodeAt(0)}`,
         `endpoint: ${endpoint}`,
       );
@@ -86,7 +80,7 @@ export class HttpProxy {
       const uri = parsedRequest['uri'] || '-';
       const ua = parsedRequest['headers']['User-Agent'] || '-';
       const length = response.data.length;
-      this.logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua} ${length}`);
+      logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua} ${length}`);
     });
   }
 }
