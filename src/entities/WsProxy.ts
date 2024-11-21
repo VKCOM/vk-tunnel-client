@@ -12,18 +12,28 @@ export class WsProxy {
   private static DISABLE_COMPRESS = 'gzip;q=0,deflate;q=0';
 
   private connections: Record<string, WebSocket> = {};
-  private userSettings: UserProxyAppSettings;
-  private logger: Logger;
 
-  public constructor(userSettings: UserProxyAppSettings, logger: Logger) {
-    this.userSettings = userSettings;
-    this.logger = logger;
-  }
+  public constructor(
+    private readonly userSettings: UserProxyAppSettings,
+    private readonly logger: Logger,
+  ) {}
 
-  private filterHeaders(payload: string, proxyHost: string) {
+  private transformPayload(payload: string, proxyHost: string) {
     return payload
       .replace(/Accept-Encoding:.*/, WsProxy.ACCEPT_ENCODING + ': ' + WsProxy.DISABLE_COMPRESS)
       .replace(/Host: .*/, 'Host: ' + proxyHost);
+  }
+
+  private filterWebSocketHeaders(headers: Record<string, string>) {
+    const allowedHeaders = [
+      'Sec-WebSocket-Protocol',
+      'Sec-WebSocket-Extensions',
+      'Sec-WebSocket-Key',
+      'Sec-WebSocket-Version',
+    ];
+    return Object.fromEntries(
+      Object.entries(headers).filter(([key]) => allowedHeaders.includes(key)),
+    );
   }
 
   private closeConnection(seq: string) {
@@ -33,26 +43,24 @@ export class WsProxy {
   private createConnection(
     seq: string,
     proxiedServerUrl: string,
+    headers: Record<string, string>,
     sendResponseToVkProxyServer: SendResponseToProxyServer,
   ) {
-    this.connections[seq] = new WebSocket(proxiedServerUrl, [], {});
-    this.connections[seq].on('error', (msg) => {
-      this.logger.error('Connection error for ' + seq, msg);
+    const subprotocol = headers['Sec-Websocket-Protocol'];
+    const host = this.userSettings.wsOrigin ? this.userSettings.host : undefined;
+    const origin = this.userSettings.wsOrigin
+      ? `${this.userSettings.wsProtocol}://${this.userSettings.host}:${this.userSettings.port}`
+      : undefined;
+
+    const websocket = new WebSocket(proxiedServerUrl, subprotocol, {
+      host,
+      origin,
+      headers: this.filterWebSocketHeaders(headers),
     });
 
-    this.connections[seq].on('upgrade', (msg) => {
-      let response = ['HTTP/1.1 101 Switching Protocols'];
-      let keys = Object.keys(msg.headers);
-      for (let i = 0; i < keys.length; i++) {
-        response.push(`${keys[i]}:${msg.headers[keys[i]]}`);
-      }
-      response.push('\n');
-      sendResponseToVkProxyServer(seq + MessageType.HTTP + response.join('\n'), () => {
-        this.logger.debug('send reply upgrade', seq, response.toString());
-      });
-    });
+    websocket.on('error', (msg) => this.logger.error('Connection error for ' + seq, msg));
 
-    this.connections[seq].on('open', () => {
+    websocket.on('open', () => {
       this.connections[seq].on('message', (data) => {
         this.logger.debug('incoming ws message from service', seq, data);
         sendResponseToVkProxyServer(`${seq}${MessageType.WEBSOCKET}${data}`, () => {
@@ -60,16 +68,30 @@ export class WsProxy {
         });
       });
     });
+
+    websocket.on('upgrade', (msg) => {
+      const responseHeaders = [
+        'HTTP/1.1 101 Switching Protocols',
+        ...Object.entries(msg.headers).map(([key, value]) => `${key}: ${value}`),
+      ];
+      const response = responseHeaders.join('\n') + '\n\n';
+
+      sendResponseToVkProxyServer(seq + MessageType.HTTP + response, () => {
+        this.logger.debug('send reply upgrade', seq, response.toString());
+      });
+    });
+
+    this.connections[seq] = websocket;
   }
 
   public async proxy(
     request: ProxiedNetworkPacket,
     sendResponseToVkProxyServer: SendResponseToProxyServer,
   ) {
-    const { messageType, payload, isWebsocketUpgrade, seq, endpoint } = request;
+    const { messageType, payload, isWebsocketUpgrade, seq, endpoint, parsedRequest } = request;
 
     if (messageType !== MessageType.HTTP) {
-      const filteredPayload = this.filterHeaders(payload, this.userSettings.host);
+      const filteredPayload = this.transformPayload(payload, this.userSettings.host);
 
       if (messageType === MessageType.WEBSOCKET_CLOSE) {
         return this.closeConnection(seq);
@@ -82,7 +104,13 @@ export class WsProxy {
 
     if (isWebsocketUpgrade) {
       const proxiedServerUrl = `${this.userSettings.wsProtocol}://${this.userSettings.host}:${this.userSettings.port}${endpoint}`;
-      this.createConnection(seq, proxiedServerUrl, sendResponseToVkProxyServer);
+
+      this.createConnection(
+        seq,
+        proxiedServerUrl,
+        parsedRequest.headers,
+        sendResponseToVkProxyServer,
+      );
     }
   }
 }
