@@ -48,7 +48,7 @@ jobs:
           npm_tag: ${{ github.event.inputs.npm_tag }}
 
       - name: Validation
-         uses: ./.github/actions/validation
+        uses: ./.github/actions/validation
 
       - name: Complete publish
         uses: ./.github/actions/complete-publish
