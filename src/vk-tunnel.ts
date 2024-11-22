@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import WebsocketClient from 'ws';
 import { getTunnelConnectionData, getUserProxyAppSettings } from './helpers';
 import { TunnelClient } from './entities';
@@ -14,7 +13,7 @@ async function vkTunnel() {
     headers: { UserID: String(tunnelData.userId), Token: tunnelData.tunnelToken },
   });
 
-  const tunnelClient = new TunnelClient(socket, userSettings, tunnelData);
+  const tunnelClient = new TunnelClient(socket, tunnelData, userSettings);
 
   socket.on('open', () => tunnelClient.onConnectionOpen());
   socket.on('close', (code: string) => tunnelClient.onConnectionClose(code));
