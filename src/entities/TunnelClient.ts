@@ -55,7 +55,7 @@ export class TunnelClient {
     this.socket.send(data, callback);
   }
 
-  private transformPayload(payload: Buffer[] | ArrayBuffer) {
+  private transformPayload(payload: Buffer[] | ArrayBuffer | Buffer) {
     return payload
       .toString()
       .replace(/Accept-Encoding:.*/, this.ACCEPT_ENCODING + ': ' + this.DISABLE_COMPRESS)

@@ -57,7 +57,7 @@ export interface UserData {
 
 export interface ProxiedNetworkPacket {
   seq: string;
-  payload: ArrayBuffer | Buffer[] | string;
+  payload: ArrayBuffer | Buffer[] | string | Buffer;
   endpoint: string;
   messageType: MessageTypeFromBack;
   isWebsocketUpgrade: boolean;

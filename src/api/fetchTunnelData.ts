@@ -35,7 +35,11 @@ export async function fetchTunnelData({
   staging,
   endpoints,
 }: FetchTunnelDataRequest) {
-  const params: Record<string, string | number | boolean> = { access_token, version, v };
+  const params: Record<string, string | number | boolean> = {
+    access_token,
+    version,
+    v,
+  };
 
   if (app_id) params['app_id'] = app_id;
   if (staging) params['staging'] = staging;

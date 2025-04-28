@@ -2,9 +2,7 @@
   "name": "@vkontakte/vk-tunnel",
   "license": "MIT",
   "version": "0.2.5",
-  "bin": {
-    "vk-tunnel": "./bin/vk-tunnel.js"
-  },
+  "bin": "./bin/vk-tunnel.js",
   "scripts": {
     "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node16.0 --outfile=bin/vk-tunnel.js",
     "lint:eslint": "eslint ./src --ext=ts",
@@ -48,5 +46,6 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "prettier": "^2.7.1",
     "typescript": "5.1.6"
-  }
+  },
+  "packageManager": "yarn@4.5.3"
 }
