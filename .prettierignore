@@ -27,4 +27,6 @@ coverage
 # GitHub
 .github/*
 
+.yarn/
+
 /bin

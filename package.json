@@ -9,6 +9,7 @@
     "lint:prettier": "prettier --check --ignore-unknown .",
     "lint:ci": "yarn lint:eslint && yarn lint:prettier",
     "lint:fix": "eslint ./src --ext=ts --fix",
+    "prepack": "yarn build",
     "prepublishOnly": "yarn build"
   },
   "repository": {

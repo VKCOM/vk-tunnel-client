@@ -12,6 +12,7 @@ export class HttpProxy {
     return await axios({
       url: proxiedServerUrl,
       data: parsedRequest.body,
+      maxRedirects: 0,
       headers: parsedRequest.headers,
       method: parsedRequest.method as Method,
       responseType: 'arraybuffer',
