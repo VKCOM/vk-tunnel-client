@@ -8,32 +8,37 @@ inputs:
   npm_tag:
     description: tag for NPM artifact
     required: false
-  
 outputs:
   prev_version:
-    value: ${{ steps.internal_id_prev_version.outputs.value }}
+    description: Previous version of the package before bumping
+    value: ${{ steps.internal_id_prev_version.outputs.version }}
   next_version:
-    value: ${{ steps.internal_id_next_version.outputs.value }}
+    description: New version of the package after bumping
+    value: ${{ steps.internal_id_next_version.outputs.version }}
 
 runs:
   using: composite
   steps:
     - name: Saving current version to env
       id: internal_id_prev_version
-      run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Bump version
+    - name: Debug git status
+      run: git status --untracked-files=all --short
+      shell: bash
+
+    - name: Bump version (no tag)
       if: ${{ !inputs.npm_tag }}
-      run: yarn version --new-version "${{ inputs.version }}" --no-commit-hooks
+      run: npm version ${{ inputs.version }} --commit-hooks false
       shell: bash
 
     - name: Bump version with npm_tag
       if: ${{ inputs.npm_tag }}
-      run: yarn version --new-version "${{ inputs.version }}" --preid ${{ inputs.npm_tag }} --no-commit-hooks
+      run: npm version ${{ inputs.version }} --tag ${{ inputs.npm_tag }} --commit-hooks false
       shell: bash
 
     - name: Saving new version to env
       id: internal_id_next_version
-      run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       shell: bash

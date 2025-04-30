@@ -13,7 +13,7 @@ runs:
         registry-url: 'https://registry.npmjs.org'
 
     - name: Install dependencies
-      run: yarn install --frozen-lockfile
+      run: yarn install --immutable
       shell: bash
 
     - name: Set Git credentials

@@ -35,14 +35,14 @@ runs:
 
     - name: Publishing release
       if: ${{ !inputs.npm_tag }}
-      run: yarn publish --access public --non-interactive
+      run: yarn npm publish --access public
       env:
-        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
+        YARN_NPM_AUTH_TOKEN: ${{ inputs.npm_token }}
       shell: bash
 
     - name: Publishing release with npm_tag
       if: ${{ inputs.npm_tag }}
-      run: yarn publish --access public --non-interactive --tag ${{ inputs.npm_tag }}
+      run: yarn npm publish --access public --tag ${{ inputs.npm_tag }}
       env:
-        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
+        YARN_NPM_AUTH_TOKEN: ${{ inputs.npm_token }}
       shell: bash
