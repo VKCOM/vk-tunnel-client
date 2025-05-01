@@ -15,6 +15,7 @@ export class HttpProxy {
       headers: parsedRequest.headers,
       method: parsedRequest.method as Method,
       responseType: 'arraybuffer',
+      maxRedirects: 0,
       timeout: this.userSettings.timeout,
       validateStatus: function (status) {
         return status >= 200 && status < 500;
