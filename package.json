@@ -26,7 +26,7 @@
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",
     "prompts": "^2.3.2",
-    "ws": "^8.16.0"
+    "ws": "^8.17.1"
   },
   "devDependencies": {
     "@types/configstore": "^6.0.2",
