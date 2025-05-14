@@ -12,6 +12,7 @@ export class HttpProxy {
     return await axios({
       url: proxiedServerUrl,
       data: parsedRequest.body,
+      maxRedirects: 0,
       headers: parsedRequest.headers,
       method: parsedRequest.method as Method,
       responseType: 'arraybuffer',
@@ -24,25 +25,30 @@ export class HttpProxy {
 
   private generateHeadersForVkTunnelBack(proxiedServerResponse: AxiosResponse) {
     let rawResponse = `HTTP/1.1 ${proxiedServerResponse.status} ${proxiedServerResponse.statusText}\r\n`;
-    let keys = Object.keys(proxiedServerResponse.headers);
 
-    for (let i = 0; i < keys.length; i++) {
-      if (keys[i] === 'transfer-encoding') {
+    for (const [key, value] of Object.entries(proxiedServerResponse.headers)) {
+      if (key === 'transfer-encoding') {
         continue;
       }
 
       if (
-        keys[i] === 'content-length' &&
+        key === 'content-length' &&
         proxiedServerResponse.headers.hasOwnProperty('transfer-encoding')
       ) {
         rawResponse += `content-length: ${proxiedServerResponse.data.length}\r\n`;
         continue;
       }
-      rawResponse += `${keys[i]}:${proxiedServerResponse.headers[keys[i]]}\r\n`;
+
+      if (Array.isArray(value)) {
+        for (const val of value) {
+          rawResponse += `${key}: ${val}\r\n`;
+        }
+      } else {
+        rawResponse += `${key}: ${value}\r\n`;
+      }
     }
 
     rawResponse += '\r\n';
-
     return rawResponse;
   }
 

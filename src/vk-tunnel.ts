@@ -10,7 +10,10 @@ async function vkTunnel() {
   const vkProxyServerUrl = `${tunnelData.tunnelHost}/${tunnelData.url}`;
 
   const socket = new WebsocketClient(vkProxyServerUrl, {
-    headers: { UserID: String(tunnelData.userId), Token: tunnelData.tunnelToken },
+    headers: {
+      UserID: String(tunnelData.userId),
+      Token: tunnelData.tunnelToken,
+    },
   });
 
   const tunnelClient = new TunnelClient(socket, tunnelData, userSettings);

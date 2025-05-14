@@ -52,7 +52,12 @@ export class WsProxy {
       websocket.on('message', (data, isBinary) => {
         logger.debug('incoming ws message from service', seq, data, isBinary);
 
-        const dataBuf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
+        const dataBuf = Array.isArray(data)
+          ? Buffer.concat(data)
+          : Buffer.isBuffer(data)
+          ? data
+          : Buffer.from(new Uint8Array(data));
+
         const seqBuf = Buffer.from(seq, 'utf8');
         const typeBuf = Buffer.from(MessageTypeToSend.WEBSOCKET, 'utf8');
         const stringMessage = `${seq}${MessageTypeToSend.WEBSOCKET}${data}`;
