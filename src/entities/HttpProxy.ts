@@ -1,55 +1,30 @@
-import axios, { AxiosResponse, Method } from 'axios';
+import http, { RequestOptions } from 'http';
+import https from 'https';
 import { logger } from './Logger';
 import { ProxiedNetworkPacket, SendResponseToProxyServer, UserProxyAppSettings } from '../types';
+import { URL } from 'url';
 
 export class HttpProxy {
   public constructor(private readonly userSettings: UserProxyAppSettings) {}
 
-  private async getResponseFromProxiedServer(
-    proxiedServerUrl: string,
-    parsedRequest: ProxiedNetworkPacket['parsedRequest'],
-  ) {
-    return await axios({
-      url: proxiedServerUrl,
-      data: parsedRequest.body,
-      maxRedirects: 0,
-      headers: parsedRequest.headers,
-      method: parsedRequest.method as Method,
-      responseType: 'arraybuffer',
-      timeout: this.userSettings.timeout,
-      validateStatus: function (status) {
-        return status >= 200 && status < 500;
-      },
-    }).catch((error) => console.log(error));
+  private getHttpModule() {
+    return this.userSettings.httpProtocol === 'https' ? https : http;
   }
 
-  private generateHeadersForVkTunnelBack(proxiedServerResponse: AxiosResponse) {
-    let rawResponse = `HTTP/1.1 ${proxiedServerResponse.status} ${proxiedServerResponse.statusText}\r\n`;
+  private getRequestOptions(
+    parsedRequest: ProxiedNetworkPacket['parsedRequest'],
+    proxiedServerUrl: string,
+  ): RequestOptions {
+    const url = new URL(proxiedServerUrl);
 
-    for (const [key, value] of Object.entries(proxiedServerResponse.headers)) {
-      if (key === 'transfer-encoding') {
-        continue;
-      }
-
-      if (
-        key === 'content-length' &&
-        proxiedServerResponse.headers.hasOwnProperty('transfer-encoding')
-      ) {
-        rawResponse += `content-length: ${proxiedServerResponse.data.length}\r\n`;
-        continue;
-      }
-
-      if (Array.isArray(value)) {
-        for (const val of value) {
-          rawResponse += `${key}: ${val}\r\n`;
-        }
-      } else {
-        rawResponse += `${key}: ${value}\r\n`;
-      }
-    }
-
-    rawResponse += '\r\n';
-    return rawResponse;
+    return {
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname + url.search,
+      method: parsedRequest.method,
+      headers: parsedRequest.headers,
+      timeout: this.userSettings.timeout,
+    };
   }
 
   public async proxy(
@@ -58,35 +33,65 @@ export class HttpProxy {
   ) {
     const { seq, parsedRequest, messageType, endpoint } = packetData;
     const proxiedServerUrl = `${this.userSettings.httpProtocol}://${this.userSettings.host}:${this.userSettings.port}${parsedRequest.uri}`;
+    const httpModule = this.getHttpModule();
+    const requestOptions = this.getRequestOptions(parsedRequest, proxiedServerUrl);
 
-    const response = await this.getResponseFromProxiedServer(proxiedServerUrl, parsedRequest);
+    const req = httpModule.request(requestOptions, (res) => {
+      const statusLine = `HTTP/1.1 ${res.statusCode} ${res.statusMessage}\r\n`;
 
-    if (!response) {
-      return;
+      let headersString = '';
+      for (const [key, value] of Object.entries(res.headers)) {
+        if (key === 'transfer-encoding') continue;
+
+        if (Array.isArray(value)) {
+          for (const v of value) {
+            headersString += `${key}: ${v}\r\n`;
+          }
+        } else if (value !== undefined) {
+          headersString += `${key}: ${value}\r\n`;
+        }
+      }
+
+      const headerBuffer = Buffer.from(statusLine + headersString + '\r\n', 'utf8');
+
+      sendResponseToVkTunnelBack(
+        Buffer.concat([Buffer.from(seq, 'utf8'), Buffer.from(messageType, 'utf8'), headerBuffer]),
+      );
+
+      res.on('data', (chunk) => {
+        const dataBuffer = Buffer.concat([
+          Buffer.from(seq, 'utf8'),
+          Buffer.from(messageType, 'utf8'),
+          chunk,
+        ]);
+        sendResponseToVkTunnelBack(dataBuffer);
+      });
+
+      res.on('end', () => {
+        logger.debug(
+          'REQUEST',
+          `seq: ${seq}`,
+          `type: ${messageType.charCodeAt(0)}`,
+          `endpoint: ${endpoint}`,
+        );
+        const realIp = parsedRequest['headers']['X-Real-Ip'] || '-';
+        const statusCode = res.statusCode || '-';
+        const host = parsedRequest['headers']['Host'] || '-';
+        const method = parsedRequest['method'] || '-';
+        const uri = parsedRequest['uri'] || '-';
+        const ua = parsedRequest['headers']['User-Agent'] || '-';
+        logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua}`);
+      });
+    });
+
+    req.on('error', (err) => {
+      logger.error('HTTP proxy error:', err.message);
+    });
+
+    if (parsedRequest.body) {
+      req.write(parsedRequest.body);
     }
 
-    const buffer = Buffer.concat([
-      Buffer.from(seq, 'utf8'),
-      Buffer.from(messageType, 'utf8'),
-      Buffer.from(this.generateHeadersForVkTunnelBack(response)),
-      response.data,
-    ]);
-
-    sendResponseToVkTunnelBack(buffer, () => {
-      logger.debug(
-        'REQUEST',
-        `seq: ${seq}`,
-        `type: ${messageType.charCodeAt(0)}`,
-        `endpoint: ${endpoint}`,
-      );
-      const realIp = parsedRequest['headers']['X-Real-Ip'] || '-';
-      const statusCode = response.status || '-';
-      const host = parsedRequest['headers']['Host'] || '-';
-      const method = parsedRequest['method'] || '-';
-      const uri = parsedRequest['uri'] || '-';
-      const ua = parsedRequest['headers']['User-Agent'] || '-';
-      const length = response.data.length;
-      logger.info(`${realIp} ${statusCode} ${host} ${method} ${uri} ${ua} ${length}`);
-    });
+    req.end();
   }
 }
