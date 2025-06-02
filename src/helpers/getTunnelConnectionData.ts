@@ -27,23 +27,32 @@ async function confirmAuth(authCode: string, deviceId: string): Promise<UserData
     type: 'confirm',
     name: 'result',
     initial: true,
-    message: chalk.yellow('Please open and approve authentication ', confirmAuthLink),
+    message:
+      chalk.yellow('Please open the following link in your browser and log in: ') +
+      chalk.blue(confirmAuthLink) +
+      chalk.yellow(
+        '\n\nOnly after you have confirmed authorization in your browser, press ENTER to continue.',
+      ),
   });
 
   if (!promptQuestion.result) {
     throw new Error(`Empty auth response ${promptQuestion.result}`);
   }
 
-  const fetchUserDataResponse = await fetchUserData({ deviceId });
+  try {
+    const fetchUserDataResponse = await fetchUserData({ deviceId });
 
-  if ('error' in fetchUserDataResponse && 'error_description' in fetchUserDataResponse) {
+    if ('error' in fetchUserDataResponse && 'error_description' in fetchUserDataResponse) {
+      return await confirmAuth(authCode, deviceId);
+    }
+
+    return {
+      accessToken: fetchUserDataResponse.access_token,
+      userId: fetchUserDataResponse.user_id,
+    };
+  } catch {
     return await confirmAuth(authCode, deviceId);
   }
-
-  return {
-    accessToken: fetchUserDataResponse.access_token,
-    userId: fetchUserDataResponse.user_id,
-  };
 }
 
 export async function getTunnelConnectionData(
