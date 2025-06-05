@@ -20,6 +20,8 @@ export async function fetchUserData({ deviceId }: FetchAccessTokenRequest) {
       console.error('An error occurred when requesting user data');
       if (error && typeof error === 'object' && isAxiosError(error)) {
         console.error('Reason:', error.response?.data?.error_description);
+      } else {
+        console.error(error);
       }
     },
   });
