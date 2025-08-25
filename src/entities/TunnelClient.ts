@@ -1,10 +1,9 @@
 import { RawData, WebSocket } from 'ws';
 import chalk from 'chalk';
-import httpParser from 'http-string-parser';
 import { WsProxy } from './WsProxy';
 import { HttpProxy } from './HttpProxy';
 import { logger } from './Logger';
-import { showSuccessLog } from '../helpers';
+import { showSuccessLog, parseHttpRequest } from '../helpers';
 import {
   MessageTypeFromBack,
   ProxiedNetworkPacket,
@@ -71,10 +70,12 @@ export class TunnelClient {
 
     const isWebSocketBinary = messageType === MessageTypeFromBack.WEBSOCKET_BINARY;
     const payload = isWebSocketBinary ? rawPayload : this.transformPayload(rawPayload);
-    const parsedRequest = httpParser.parseRequest(payload.toString());
+    const parsedRequest = parseHttpRequest(payload.toString());
 
     const upgradeHeader = parsedRequest.headers['Upgrade'] || '';
-    const isWebsocketUpgrade = upgradeHeader.toLowerCase() === 'websocket';
+    const isWebsocketUpgrade = Array.isArray(upgradeHeader)
+      ? upgradeHeader.some((header) => header.toLowerCase() === 'websocket')
+      : upgradeHeader.toLowerCase() === 'websocket';
 
     const endpoint = payload.toString().split(' ')[1];
 

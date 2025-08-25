@@ -21,7 +21,6 @@
     "axios-retry": "^4.4.0",
     "chalk": "^3.0.0",
     "configstore": "^6.0.0",
-    "http-string-parser": "0.0.6",
     "minimist": "^1.2.8",
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",

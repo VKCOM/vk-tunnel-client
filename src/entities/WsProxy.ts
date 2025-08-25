@@ -6,6 +6,7 @@ import {
   ProxiedNetworkPacket,
   SendResponseToProxyServer,
   UserProxyAppSettings,
+  ParseRequestResult,
 } from '../types';
 
 export class WsProxy {
@@ -13,7 +14,7 @@ export class WsProxy {
 
   public constructor(private readonly userSettings: UserProxyAppSettings) {}
 
-  private filterWebSocketHeaders(headers: Record<string, string>) {
+  private filterWebSocketHeaders(headers: ParseRequestResult['headers']) {
     const allowedHeaders = [
       'Sec-WebSocket-Protocol',
       'Sec-WebSocket-Extensions',
@@ -33,7 +34,7 @@ export class WsProxy {
   private createConnection(
     seq: string,
     endpoint: string,
-    headers: Record<string, string>,
+    headers: ParseRequestResult['headers'],
     sendResponseToVkProxyServer: SendResponseToProxyServer,
   ) {
     const subprotocol = headers['Sec-Websocket-Protocol'];
