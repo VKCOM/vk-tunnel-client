@@ -1,5 +1,3 @@
-import { ParseRequestResult } from 'http-string-parser';
-
 export enum HttpProtocol {
   HTTP = 'http',
   HTTPS = 'https',
@@ -20,6 +18,13 @@ export enum MessageTypeFromBack {
   WEBSOCKET_BINARY = '\x02',
   WEBSOCKET_TEXT = '\x01',
   WEBSOCKET_CLOSE = '\b',
+}
+
+export interface ParseRequestResult {
+  method: string;
+  uri: string;
+  headers: { [key: string]: string | string[] };
+  body: string;
 }
 
 export interface UserProxyAppSettings {

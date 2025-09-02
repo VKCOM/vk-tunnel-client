@@ -1,7 +1,7 @@
 {
   "name": "@vkontakte/vk-tunnel",
   "license": "MIT",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "bin": "./bin/vk-tunnel.js",
   "scripts": {
     "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node16.0 --outfile=bin/vk-tunnel.js",
@@ -21,7 +21,6 @@
     "axios-retry": "^4.4.0",
     "chalk": "^3.0.0",
     "configstore": "^6.0.0",
-    "http-string-parser": "0.0.6",
     "minimist": "^1.2.8",
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",
