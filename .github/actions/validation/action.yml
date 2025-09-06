@@ -7,3 +7,7 @@ runs:
     - name: Run linters
       run: yarn lint:ci
       shell: bash
+      
+    - name: Run tests
+      run: yarn test
+      shell: bash
