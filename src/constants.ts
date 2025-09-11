@@ -17,8 +17,8 @@ export const DEFAULT_USER_PROXY_APP_SETTINGS = {
   'endpoints': undefined,
 } as UserProxyAppSettingsArgs;
 
-export const OAUTH_HOST = 'https://oauth.vk.com/';
-export const API_HOST = 'https://api.vk.com/method/';
+export const OAUTH_HOST = 'https://oauth.vk.ru/';
+export const API_HOST = 'https://api.vk.ru/method/';
 export const API_VERSION = '5.199';
 export const OAUTH_USER_REVOKE_TOKEN_ERROR = 5;
 export const TUNNEL_APP_ID = 7357112;
