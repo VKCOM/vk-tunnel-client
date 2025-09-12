@@ -1,7 +1,7 @@
 {
   "name": "@vkontakte/vk-tunnel",
   "license": "MIT",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "bin": "./bin/vk-tunnel.js",
   "scripts": {
     "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node16.0 --outfile=bin/vk-tunnel.js",
