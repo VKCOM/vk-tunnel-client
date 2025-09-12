@@ -1,3 +1,11 @@
+## v0.2.9
+
+- Все адреса изменены с `vk.com` на `vk.ru`.
+  - `api.vk.com` → `api.vk.ru`
+  - `dev.vk.com` → `dev.vk.ru`
+  - `vk.com` → `vk.ru`
+  - `oauth.vk.com` → `oauth.vk.ru`
+
 ## v0.2.8
 
 - Исправлены проблемы с проксированием json объектов.

@@ -22,15 +22,15 @@ npm install @vkontakte/vk-tunnel -g
 
 ## Запуск, использование, параметры
 
-Подробная информация об использовании и параметрах VK Tunnel — на [портале для разработчиков ВКонтакте](https://dev.vk.com/libraries/tunnel).
+Подробная информация об использовании и параметрах VK Tunnel — на [портале для разработчиков ВКонтакте](https://dev.vk.ru/libraries/tunnel).
 
 ## Полезные ссылки
 
-- [Примеры мини-приложений](https://dev.vk.com/mini-apps/examples)
+- [Примеры мини-приложений](https://dev.vk.ru/mini-apps/examples)
 
-- [Сообщество разработчиков мини-приложений ВКонтакте](https://vk.com/vkappsdev)
+- [Сообщество разработчиков мини-приложений ВКонтакте](https://vk.ru/vkappsdev)
 
-- [VK для разработчиков](https://dev.vk.com)
+- [VK для разработчиков](https://dev.vk.ru)
 
 ## Сотрудничество
 
