@@ -1,6 +1,6 @@
 import WebsocketClient from 'ws';
-import { getTunnelConnectionData, getUserProxyAppSettings } from './helpers';
 import { TunnelClient } from './entities';
+import { getTunnelConnectionData, getUserProxyAppSettings } from './helpers';
 
 export async function vkTunnel() {
   const userSettings = getUserProxyAppSettings();

@@ -23,6 +23,7 @@ module.exports = {
         '@typescript-eslint/array-type': 'off',
         '@typescript-eslint/prefer-readonly': 'off',
         '@typescript-eslint/no-magic-numbers': 'off',
+        '@typescript-eslint/naming-convention': 'off',
         '@typescript-eslint/no-extraneous-class': 'off',
         '@typescript-eslint/no-floating-promises': 'off',
         '@typescript-eslint/no-non-null-assertion': 'off',
