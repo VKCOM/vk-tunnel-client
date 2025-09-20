@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["vitest/globals", "node"],
     "target": "esnext",
     "module": "esnext",
     "removeComments": true,
@@ -8,8 +9,11 @@
     "esModuleInterop": true,
     "moduleResolution": "Node",
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-
-  "include": ["src"]
+  "include": ["src", "test", "**/*.test.ts"]
 }
