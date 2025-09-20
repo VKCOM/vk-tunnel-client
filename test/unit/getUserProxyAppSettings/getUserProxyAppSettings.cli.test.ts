@@ -21,4 +21,16 @@ describe('getUserProxyAppSettings (CLI args)', () => {
     expect(settings.insecure).toBe(1);
     expect(settings.wsOrigin).toBe(0);
   });
+
+  it('throws on invalid insecure value', () => {
+    expect(() => getUserProxyAppSettings(['--insecure=2'])).toThrow();
+  });
+
+  it('throws on invalid ws-protocol', () => {
+    expect(() => getUserProxyAppSettings(['--ws-protocol=ftp'])).toThrow();
+  });
+
+  it('throws on empty ws-origin', () => {
+    expect(() => getUserProxyAppSettings(['--ws-origin='])).toThrow();
+  });
 });

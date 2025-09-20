@@ -1,21 +1,18 @@
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { vkTunnel } from '@/vkTunnel';
-import { getFreePort } from './utils/getFreePort';
 import { ensureAuth } from './utils/ensureAuth';
 
 describe.sequential('Интеграционный тест WebSocket через туннель', () => {
   let server: http.Server;
   let wss: WebSocketServer;
   let port: number;
-  const OLD_ENV = process.env;
 
   let tunnelData: Awaited<ReturnType<typeof vkTunnel>>['tunnelData'];
   let closeTunnelConnection: () => void;
 
   beforeAll(async () => {
     ensureAuth();
-    port = await getFreePort();
 
     server = http.createServer();
     wss = new WebSocketServer({ server });
@@ -26,8 +23,16 @@ describe.sequential('Интеграционный тест WebSocket через 
       });
     });
 
-    await new Promise<void>((resolve) => server.listen(port, resolve));
-    process.env.PROXY_PORT = port.toString();
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+
+    const address = server.address();
+
+    if (typeof address !== 'object' || !address?.port) {
+      throw new Error('Failed to get server port');
+    }
+
+    port = address.port;
+    vi.stubEnv('PROXY_PORT', port.toString());
 
     const tunnel = await vkTunnel();
     tunnelData = tunnel.tunnelData;
@@ -38,7 +43,7 @@ describe.sequential('Интеграционный тест WebSocket через 
     wss.close();
     server.close();
     closeTunnelConnection();
-    process.env = OLD_ENV;
+    vi.unstubAllEnvs();
   });
 
   it('Устанавливается соединение и работает echo', async () => {

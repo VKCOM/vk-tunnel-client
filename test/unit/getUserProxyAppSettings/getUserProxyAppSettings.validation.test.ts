@@ -16,8 +16,7 @@ const mockedFs = fs as unknown as {
 describe('getUserProxyAppSettings (invalid args)', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    delete process.env.PROXY_HOST;
-    delete process.env.PROXY_PORT;
+    vi.unstubAllEnvs();
   });
 
   it('Выбрасывает ошибку, если CLI аргумент имеет неверный тип', () => {
@@ -39,8 +38,8 @@ describe('getUserProxyAppSettings (invalid args)', () => {
   });
 
   it('Выбрасывает ошибку, если env переменные имеют неверные типы', () => {
-    process.env.PROXY_PORT = 'not-a-number';
-    process.env.PROXY_HOST = 'ok-host';
+    vi.stubEnv('PROXY_PORT', 'not-a-number');
+    vi.stubEnv('PROXY_HOST', 'ok-host');
 
     expect(() => getUserProxyAppSettings([])).toThrowError();
   });

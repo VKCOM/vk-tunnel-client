@@ -2,21 +2,19 @@ import { getUserProxyAppSettings } from '@/helpers/getUserProxyAppSettings';
 import { HttpProtocol, WsProtocol } from '@/types';
 
 describe('getUserProxyAppSettings (ENV)', () => {
-  const OLD_ENV = process.env;
-
   beforeEach(() => {
-    process.env = { ...OLD_ENV };
+    vi.unstubAllEnvs();
   });
 
   afterEach(() => {
-    process.env = OLD_ENV;
+    vi.unstubAllEnvs();
   });
 
   it('Должен брать значения из ENV', () => {
-    process.env.PROXY_HTTP_PROTO = 'https';
-    process.env.PROXY_WS_PROTO = 'wss';
-    process.env.PROXY_PORT = '4000';
-    process.env.PROXY_HOST = 'envhost.local';
+    vi.stubEnv('PROXY_HTTP_PROTO', 'https');
+    vi.stubEnv('PROXY_WS_PROTO', 'wss');
+    vi.stubEnv('PROXY_PORT', '4000');
+    vi.stubEnv('PROXY_HOST', 'envhost.local');
 
     const settings = getUserProxyAppSettings([]);
 

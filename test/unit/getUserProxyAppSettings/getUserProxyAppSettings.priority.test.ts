@@ -17,8 +17,7 @@ const mockedFs = fs as unknown as {
 describe('getUserProxyAppSettings (priority check)', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    delete process.env.PROXY_HOST;
-    delete process.env.PROXY_PORT;
+    vi.unstubAllEnvs();
   });
 
   it('CLI > ENV > file > defaults', () => {
@@ -30,8 +29,8 @@ describe('getUserProxyAppSettings (priority check)', () => {
       }),
     );
 
-    process.env.PROXY_HOST = 'env-host';
-    process.env.PROXY_PORT = '2222';
+    vi.stubEnv('PROXY_HOST', 'env-host');
+    vi.stubEnv('PROXY_PORT', '2222');
 
     const settings = getUserProxyAppSettings([
       '--host=cli-host',

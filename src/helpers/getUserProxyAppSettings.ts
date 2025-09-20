@@ -9,9 +9,7 @@ import {
   MAX_PORT,
 } from '../constants';
 
-export function getUserProxyAppSettings(
-  argv: string[] = process.argv.slice(2),
-): UserProxyAppSettings {
+export function getUserProxyAppSettings(argv: string[]): UserProxyAppSettings {
   const defaultSettings = getDefaultUserProxyAppSettings();
   const cliArgs = minimist<Partial<UserProxyAppSettingsArgs>>(argv, {
     string: ['_'],
@@ -27,7 +25,7 @@ export function getUserProxyAppSettings(
     'ws-protocol': wsProtocol,
     'ws-origin': wsOrigin,
     ...userSettings
-  } = Object.assign({ ...defaultSettings, ...userConfigFile }, cliArgs);
+  } = Object.assign({}, defaultSettings, userConfigFile, cliArgs);
 
   return validateUserProxySettings({ wsOrigin, httpProtocol, wsProtocol, ...userSettings });
 }

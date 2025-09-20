@@ -20,7 +20,7 @@ describe('getUserProxyAppSettings (file config, mocked fs)', () => {
   });
 
   it('Читает настройки из файла, если он существует', () => {
-    mockedFs.existsSync.mockReturnValue(true);
+    vi.mocked(fs.existsSync).mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(
       JSON.stringify({
         host: 'file-host',

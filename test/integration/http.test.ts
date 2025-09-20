@@ -1,20 +1,17 @@
 import http from 'http';
 import { vkTunnel } from '@/vkTunnel';
-import { getFreePort } from './utils/getFreePort';
 import axios from 'axios';
 import { ensureAuth } from './utils/ensureAuth';
 
 describe.sequential('Интеграционный тест HTTP через туннель', () => {
   let server: http.Server;
   let port: number;
-  const OLD_ENV = process.env;
 
   let tunnelData: Awaited<ReturnType<typeof vkTunnel>>['tunnelData'];
   let closeTunnelConnection: () => void;
 
   beforeAll(async () => {
     ensureAuth();
-    port = await getFreePort();
 
     server = http.createServer((req, res) => {
       if (req.url === '/' && req.method === 'GET') {
@@ -43,8 +40,14 @@ describe.sequential('Интеграционный тест HTTP через ту�
       }
     });
 
-    await new Promise<void>((resolve) => server.listen(port, resolve));
-    process.env.PROXY_PORT = port.toString();
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    if (typeof address !== 'object' || !address?.port) {
+      throw new Error('Failed to get server port');
+    }
+
+    port = address.port;
+    vi.stubEnv('PROXY_PORT', port.toString());
 
     const tunnel = await vkTunnel();
     tunnelData = tunnel.tunnelData;
@@ -54,7 +57,10 @@ describe.sequential('Интеграционный тест HTTP через ту�
   afterAll(async () => {
     server.close();
     closeTunnelConnection();
-    process.env = OLD_ENV;
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('GET / базовый сценарий', async () => {
