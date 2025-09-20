@@ -1,9 +1,8 @@
-#!/usr/bin/env node
 import WebsocketClient from 'ws';
 import { getTunnelConnectionData, getUserProxyAppSettings } from './helpers';
 import { TunnelClient } from './entities';
 
-async function vkTunnel() {
+export async function vkTunnel() {
   const userSettings = getUserProxyAppSettings();
   const tunnelData = await getTunnelConnectionData(userSettings);
 
@@ -18,10 +17,24 @@ async function vkTunnel() {
 
   const tunnelClient = new TunnelClient(socket, tunnelData, userSettings);
 
-  socket.on('open', () => tunnelClient.onConnectionOpen());
-  socket.on('close', (code: string) => tunnelClient.onConnectionClose(code));
-  socket.on('error', (error: string) => tunnelClient.onConnectionError(error));
-  socket.on('message', (data) => void tunnelClient.onMessage(data));
-}
+  await new Promise<void>((resolve, reject) => {
+    socket.on('open', () => {
+      tunnelClient.onConnectionOpen();
+      resolve();
+    });
+    socket.on('error', (err: string) => {
+      tunnelClient.onConnectionError(err);
+      reject(err);
+    });
+    socket.on('close', (code) => {
+      reject(new Error(`Closed before open, code: ${code}`));
+    });
+  });
 
-vkTunnel().catch((error) => console.log(error));
+  socket.on('message', (data) => void tunnelClient.onMessage(data));
+
+  return {
+    tunnelData,
+    closeTunnelConnection: () => socket.close(),
+  };
+}
