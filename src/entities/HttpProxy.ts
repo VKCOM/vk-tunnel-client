@@ -20,7 +20,13 @@ export class HttpProxy {
       validateStatus: function (status) {
         return status >= 200 && status < 500;
       },
-    }).catch((error) => console.log(error));
+    }).catch((error) => {
+      if (error.response) {
+        return error.response;
+      }
+
+      throw error;
+    });
   }
 
   private generateHeadersForVkTunnelBack(proxiedServerResponse: AxiosResponse) {

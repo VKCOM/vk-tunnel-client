@@ -10,9 +10,10 @@ module.exports = {
   },
   plugins: ['@typescript-eslint', 'import', 'vitest'],
   extends: ['plugin:@vkontakte/eslint-plugin/typescript', 'plugin:import/recommended', 'prettier'],
+  ignorePatterns: ['.eslintrc.js', 'vitest.config.mts', '**/*.d.ts'],
   overrides: [
     {
-      files: '**/*.{ts,tsx}',
+      files: '**/*.{ts,tsx,test.ts}',
       rules: {
         'import/named': 'off',
         'import/no-unresolved': 'off',
