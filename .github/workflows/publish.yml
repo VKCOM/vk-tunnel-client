@@ -23,7 +23,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.DEVTOOLS_GITHUB_TOKEN }}
@@ -44,10 +44,20 @@ jobs:
         run: npm install -g npm@latest
         shell: bash
 
-      - name: Complete publish
-        uses: ./.github/actions/complete-publish
+      - name: Publish to npm
+        run: npm publish --access public
+        shell: bash
+
+      - name: Commit and tag
+        run: |
+          git add -A
+          git commit -m "bump(vk-tunnel-client): from ${{ steps.updated_versions_info.outputs.prev_version }} to ${{ steps.updated_versions_info.outputs.next_version }}"
+          git tag vk-tunnel-client@${{ steps.updated_versions_info.outputs.next_version }}
+        shell: bash
+
+      - name: Pushing changes
+        uses: ad-m/github-push-action@master
         with:
+          github_token: ${{ secrets.DEVTOOLS_GITHUB_TOKEN }}
           branch: ${{ github.ref }}
-          prev_version: ${{ steps.updated_versions_info.outputs.prev_version }}
-          next_version: ${{ steps.updated_versions_info.outputs.next_version }}
-          token: ${{ secrets.DEVTOOLS_GITHUB_TOKEN }}
+          tags: true
