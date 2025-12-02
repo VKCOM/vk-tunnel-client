@@ -24,18 +24,14 @@ runs:
       run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Debug git status
-      run: git status --untracked-files=all --short
-      shell: bash
-
     - name: Bump version (no tag)
       if: ${{ !inputs.npm_tag }}
-      run: npm version ${{ inputs.version }} --commit-hooks false
+      run: npm version ${{ inputs.version }} --commit-hooks false --git-tag-version false
       shell: bash
 
     - name: Bump version with npm_tag
       if: ${{ inputs.npm_tag }}
-      run: npm version ${{ inputs.version }} --tag ${{ inputs.npm_tag }} --commit-hooks false
+      run: npm version ${{ inputs.version }} --preid ${{ inputs.npm_tag }} --commit-hooks false --git-tag-version false
       shell: bash
 
     - name: Saving new version to env

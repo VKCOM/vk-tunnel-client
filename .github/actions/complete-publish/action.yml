@@ -33,7 +33,7 @@ runs:
 
     - name: Commit version changes
       run: |
-        git add package.json
+        git add -A
         git commit -m "bump(vk-tunnel-client): from ${{ inputs.prev_version }} to ${{ inputs.next_version }}"
       shell: bash
 
