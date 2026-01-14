@@ -4,11 +4,16 @@
   "version": "0.2.10",
   "bin": "./bin/vk-tunnel.js",
   "scripts": {
-    "build": "tsc && esbuild src/vk-tunnel.ts --bundle --platform=node --target=node16.0 --outfile=bin/vk-tunnel.js",
+    "test": "yarn run test:unit && yarn run test:integration",
+    "test:unit": "vitest run test/unit/**/*.test.ts",
+    "test:integration": "vitest run test/integration/**/*.test.ts --maxWorkers 1 --maxConcurrency 1",
+    "test:coverage": "vitest --coverage --maxWorkers 1 --maxConcurrency 1",
+    "build": "tsc && esbuild src/index.ts --bundle --platform=node --target=node16.0 --outfile=bin/vk-tunnel.js",
     "lint:eslint": "eslint ./src --ext=ts",
     "lint:prettier": "prettier --check --ignore-unknown .",
     "lint:ci": "yarn lint:eslint && yarn lint:prettier",
     "lint:fix": "eslint ./src --ext=ts --fix",
+    "prepare": "husky",
     "prepack": "yarn build",
     "prepublishOnly": "yarn build"
   },
@@ -34,18 +39,20 @@
     "@types/node": "^20.11.19",
     "@types/prompts": "^2.4.9",
     "@types/ws": "^8.5.10",
-    "@typescript-eslint/eslint-plugin": "5.50.0",
-    "@typescript-eslint/parser": "^5.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.44.0",
+    "@typescript-eslint/parser": "^8.44.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "@vkontakte/eslint-plugin": "^1.2.0",
     "@vkontakte/prettier-config": "^0.1.0",
     "esbuild": "^0.25.1",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "2.29.1",
-    "eslint-plugin-react": "^7.16.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-vitest": "^0.5.4",
+    "husky": "^9.1.7",
     "prettier": "^2.7.1",
-    "typescript": "5.1.6"
+    "typescript": "5.1.6",
+    "vitest": "^3.2.4"
   },
   "packageManager": "yarn@4.5.3"
 }

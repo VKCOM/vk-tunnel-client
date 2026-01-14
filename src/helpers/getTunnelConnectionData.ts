@@ -79,7 +79,9 @@ export async function getTunnelConnectionData(
     if (tunnelData.error.error_code === OAUTH_USER_REVOKE_TOKEN_ERROR) {
       userStoredInfo.delete('accessToken');
       userStoredInfo.delete('userId');
-      console.log('Previous settings has been removed. Try again.');
+      console.log(
+        chalk.yellow('Previous settings have been removed. Please authorize again and retry.'),
+      );
       return await getTunnelConnectionData(userSettings);
     }
 
